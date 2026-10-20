@@ -957,11 +957,8 @@ def evaluate_threshold(
 
         candidates = (
             warning_episodes[
-                warning_episodes[
-                    "Run_ID"
-                ]
-                ==
-                run_id
+                (warning_episodes["Run_ID"] == run_id)
+                & (~warning_episodes.index.isin(matched_warning_indices))
             ]
             .copy()
         )
@@ -1008,13 +1005,10 @@ def evaluate_threshold(
             )
         )
 
-        warning_index = (
-            candidates.index[0]
-        )
-
-        warning = (
-            candidates.iloc[0]
-        )
+        # Match the closest preceding warning. Each warning episode
+        # may be assigned to at most one instability event.
+        warning = candidates.iloc[-1]
+        warning_index = warning.name
 
         warning_time = float(
             warning[
