@@ -125,6 +125,9 @@ def find_prediction_file(
         "GRU": [
             "gru",
         ],
+        "Hybrid": [
+            "hybrid",
+        ],
     }
 
     keywords = model_keywords[
@@ -1318,6 +1321,7 @@ def main():
         "XGBoost",
         "LSTM",
         "GRU",
+        "Hybrid",
     ]:
 
         path = find_prediction_file(
