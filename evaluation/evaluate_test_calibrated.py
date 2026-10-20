@@ -50,7 +50,7 @@ GROUND_TRUTH_FILE = (
 # CONFIGURATION
 # ============================================================
 
-MODELS = ["XGBoost", "LSTM", "GRU"]
+MODELS = ["XGBoost", "LSTM", "GRU", "Hybrid"]
 
 HORIZONS = ["0.5s", "1.0s", "2.0s"]
 
@@ -64,6 +64,7 @@ PREDICTION_FILES = {
     "XGBoost": PRED_DIR / "xgboost_test_predictions.npy",
     "LSTM": PRED_DIR / "lstm_test_predictions.npy",
     "GRU": PRED_DIR / "gru_test_predictions.npy",
+    "Hybrid": PRED_DIR / "hybrid_test_predictions.npy",
 }
 
 # Ground truth instability threshold.
