@@ -17,7 +17,7 @@ A research prototype for forecasting a simulated vehicle's future rear-axle tire
 - `data/raw/`: ground-truth simulation labels, sensor measurements, and run metadata.
 - `preprocessing/create_forecasting_dataset.py`: run-level train/validation/test split and temporal windows.
 - `data/processed/`: sequence archives and prediction arrays.
-- `models/`: forecasting baselines and physics observer.
+- `models/`: forecasting baselines, physics observer, and experimental physics-plus-XGBoost residual hybrid.
 - `physics/`: rear-slip boundary, margin, and phase-plane analyses.
 - `evaluation/`: regression, threshold, event-level, and robustness evaluation.
 - `results/tables/`, `results/figures/`, `results/models/`: generated reports and model artifacts.
@@ -61,6 +61,7 @@ Run commands from the repository root.
    python .\models\xgboost_forecaster.py
    python .\models\lstm_forecaster.py
    python .\models\gru_forecaster.py
+   python .\models\hybrid_model.py
    ```
 
 4. Calibrate warning thresholds on validation predictions, then evaluate the untouched test set:
@@ -70,6 +71,7 @@ Run commands from the repository root.
    python .\evaluation\evaluate_test_calibrated.py
    python .\evaluation\event_lead_time.py
    python .\evaluation\robustness_generalization.py
+   python -m pytest .\tests
    ```
 
    Check each script's output and expected input files before running the next one. The event-level evaluator currently reports a fixed zero-margin threshold as a transparent baseline; use the validation-calibrated evaluation for primary threshold-based results. Do not select thresholds from the test set.
@@ -96,7 +98,7 @@ Run commands from the repository root.
 
 - The physics observer is an approximate sensor-only baseline; lateral-velocity integration can drift.
 - The rear-slip saturation boundary is a proxy and should be cross-checked against a validated beta–yaw-rate stability envelope before stronger stability claims.
-- The hybrid model is not yet a validated physics-informed learned model; do not describe it as a completed contribution unless implemented and tested.
+- `models/hybrid_model.py` implements an experimental current-physics-margin plus learned residual baseline. It must be run and compared against the same held-out test set before claiming it improves performance.
 - Run multi-seed experiments and report uncertainty intervals before claiming robust superiority.
 - Validate on measured vehicle data before making deployment or safety claims.
 
