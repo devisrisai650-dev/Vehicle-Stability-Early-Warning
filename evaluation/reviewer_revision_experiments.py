@@ -135,8 +135,14 @@ def bootstrap_event_metrics():
             raise ValueError(f"{model} prediction shape {arr.shape} != target shape {y.shape}")
         prediction_arrays[model] = arr
 
+    # Cache positional indices and timestamps once. Using .iloc avoids repeated
+    # label-index reindexing inside thousands of bootstrap draws.
     run_indices = {
-        int(run): base_timeline.index[base_timeline["Run_ID"] == int(run)].to_numpy()
+        int(run): np.flatnonzero(np.asarray(run_ids, dtype=int) == int(run))
+        for run in test_runs
+    }
+    run_times = {
+        int(run): np.asarray(times, dtype=float)[run_indices[int(run)]]
         for run in test_runs
     }
     event_by_run = {
@@ -160,12 +166,15 @@ def bootstrap_event_metrics():
                     # Each sampled run copy needs its own contiguous index range.
                     # Reusing original sample_index values makes the warning
                     # evaluator index the wrong predictions (or duplicate them).
-                    part = base_timeline.loc[idx, ["Time"]].copy()
-                    part["sample_index"] = np.arange(
-                        next_sample_index, next_sample_index + len(idx), dtype=int
-                    )
+                    run_time_values = run_times[int(source_run)]
+                    part = pd.DataFrame({
+                        "Time": run_time_values,
+                        "sample_index": np.arange(
+                            next_sample_index, next_sample_index + len(idx), dtype=int
+                        ),
+                        "Run_ID": new_id,
+                    })
                     next_sample_index += len(idx)
-                    part["Run_ID"] = new_id
                     timeline_parts.append(part)
                     prediction_parts.append(predictions[idx, col])
                     epart = event_by_run[int(source_run)].copy()
