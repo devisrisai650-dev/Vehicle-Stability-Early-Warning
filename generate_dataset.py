@@ -20,6 +20,7 @@ import pandas as pd
 
 from vehicle_model import rk4_step, dynamics, ALPHA_R_PEAK, VEHICLE
 from maneuvers import PROFILES, DURATIONS
+from preprocessing.sensor_noise import add_sensor_noise
 
 RNG = np.random.default_rng(42)
 
@@ -78,41 +79,6 @@ def simulate_run(maneuver, mu_name, mu, speed_kmh, amp_deg, run_id):
     df['target_speed_kmh'] = speed_kmh
     df['amplitude_deg'] = amp_deg
     return df
-
-
-def add_sensor_noise(gt, rng):
-    """Low-cost retrofit-grade sensor model applied to ground truth.
-    Noise levels are illustrative (MEMS-consumer-grade order of magnitude),
-    NOT calibrated against a specific datasheet -- documented as such."""
-    # Generate independent sample noise and independent constant biases per run.
-    measured = gt[['Run_ID', 'Time', 'maneuver', 'mu_surface']].copy()
-    measured['yaw_rate_meas'] = np.nan
-    measured['lateral_accel_meas'] = np.nan
-    measured['speed_meas'] = np.nan
-    measured['steering_angle_meas'] = np.nan
-
-    for _, run in gt.groupby('Run_ID', sort=False):
-        idx = run.index
-        n = len(run)
-        measured.loc[idx, 'yaw_rate_meas'] = (
-            run['yaw_rate'].to_numpy()
-            + rng.normal(0, np.radians(0.5), n)
-            + rng.normal(0, np.radians(0.1))
-        )
-        measured.loc[idx, 'lateral_accel_meas'] = (
-            run['lateral_accel'].to_numpy()
-            + rng.normal(0, 0.15, n)
-            + rng.normal(0, 0.05)
-        )
-        speed_ms = run['target_speed_kmh'].to_numpy() / 3.6
-        measured_speed = speed_ms + rng.normal(0, 0.1, n)
-        measured.loc[idx, 'speed_meas'] = np.round(measured_speed / 0.28) * 0.28
-        measured.loc[idx, 'steering_angle_meas'] = (
-            run['steer_true'].to_numpy()
-            + rng.normal(0, np.radians(0.2), n)
-        )
-
-    return measured
 
 
 def main():
