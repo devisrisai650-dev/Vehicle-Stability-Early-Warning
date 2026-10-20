@@ -1,1579 +1,350 @@
+"""Event-level early-warning evaluation on the held-out test runs.
+
+Warnings are issued at the prediction timestamp (t), using the model's
+forecast for the selected future horizon. A warning counts as advance
+detection only when its onset is at or before the ground-truth event onset
+and within MAX_WARNING_WINDOW_S. Late warnings are reported separately and
+never counted as successful early warnings.
+"""
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
-
-# ==============================================================
-# PROJECT PATHS
-# ==============================================================
-
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-
-DATA_DIR = PROJECT_ROOT / "data"
-PROCESSED_DIR = DATA_DIR / "processed"
-
-PREDICTION_DIR = (
-    PROCESSED_DIR / "predictions"
-)
-
-RESULTS_DIR = PROJECT_ROOT / "results"
-TABLE_DIR = RESULTS_DIR / "tables"
-
-TEST_SEQUENCE_PATH = (
-    PROCESSED_DIR
-    / "test_sequences.npz"
-)
-
-GT_PATH = (
-    DATA_DIR
-    / "raw"
-    / "ground_truth_dynamics.csv"
-)
-
-
-# ==============================================================
-# MODELS
-# ==============================================================
+ROOT = Path(__file__).resolve().parents[1]
+PROCESSED = ROOT / "data" / "processed"
+PRED_DIR = PROCESSED / "predictions"
+GT_PATH = ROOT / "data" / "raw" / "ground_truth_dynamics.csv"
+TABLE_DIR = ROOT / "results" / "tables"
+TEST_PATH = PROCESSED / "test_sequences.npz"
 
 MODELS = {
-
-    "XGBoost":
-        PREDICTION_DIR
-        / "xgboost_test_predictions.npy",
-
-    "LSTM":
-        PREDICTION_DIR
-        / "lstm_test_predictions.npy",
-
-    "GRU":
-        PREDICTION_DIR
-        / "gru_test_predictions.npy",
+    "XGBoost": PRED_DIR / "xgboost_test_predictions.npy",
+    "LSTM": PRED_DIR / "lstm_test_predictions.npy",
+    "GRU": PRED_DIR / "gru_test_predictions.npy",
+    "Hybrid": PRED_DIR / "hybrid_test_predictions.npy",
 }
-
-
-# ==============================================================
-# HORIZONS
-# ==============================================================
-
-HORIZONS = {
-
-    "0.5s": 0,
-
-    "1.0s": 1,
-
-    "2.0s": 2,
-}
-
-
-# ==============================================================
-# WARNING CONFIGURATION
-# ==============================================================
-
-# Physics-defined instability threshold.
-#
-# Stability margin < 0
-#     → predicted unstable
-#
-# We will later calibrate this threshold using validation data.
-THRESHOLD = 0.0
-
-
-# Dataset sampling frequency:
-#
-# 20 Hz
-# → 0.05 s/sample
-#
-# Requiring two consecutive warning samples means
-# approximately 0.10 s of sustained warning.
+HORIZONS = {"0.5s": 0, "1.0s": 1, "2.0s": 2}
+THRESHOLD = 0.0  # fallback physics boundary if validation thresholds are unavailable
+THRESHOLD_PATH = PROCESSED / "selected_warning_thresholds.npz"
 CONSECUTIVE_WARNINGS = 2
-
-
-# If two warning portions are separated by less than
-# this amount of time, consider them part of the same
-# warning episode.
 WARNING_GAP_S = 0.20
-
-
-# A warning is considered relevant to an instability
-# event only if it begins within this amount of time
-# before the event onset.
 MAX_WARNING_WINDOW_S = 5.0
 
 
-# ==============================================================
-# LOAD TEST SEQUENCES
-# ==============================================================
-
 def load_test_data():
-
-    """
-    Load the test sequence file.
-
-    Expected arrays:
-
-        X
-        y
-        Run_ID
-        Time
-
-    """
-
-    data = np.load(
-        TEST_SEQUENCE_PATH,
-        allow_pickle=True
-    )
-
-    print(
-        "\nTEST FILE CONTENTS"
-    )
-
-    print("-" * 70)
-
-    for key in data.files:
-
-        value = data[key]
-
-        if hasattr(value, "shape"):
-
-            print(
-                f"{key}: {value.shape}"
-            )
-
-        else:
-
-            print(
-                f"{key}: {type(value)}"
-            )
-
-    required_keys = [
-        "X",
-        "y",
-        "Run_ID",
-        "Time",
-    ]
-
-    missing = [
-        key
-        for key in required_keys
-        if key not in data.files
-    ]
-
+    data = np.load(TEST_PATH, allow_pickle=True)
+    required = {"X", "y", "Run_ID", "Time"}
+    missing = required.difference(data.files)
     if missing:
+        raise KeyError(f"{TEST_PATH} missing keys: {sorted(missing)}")
+    X = data["X"]
+    y = data["y"].astype(float)
+    run_ids = np.asarray(data["Run_ID"]).astype(int)
+    times = np.asarray(data["Time"]).astype(float)
+    if not (len(X) == len(y) == len(run_ids) == len(times)):
+        raise ValueError("Test sequence arrays have inconsistent lengths.")
+    if y.ndim != 2 or y.shape[1] != 3:
+        raise ValueError(f"Expected y shape (N, 3), got {y.shape}")
+    return X, y, run_ids, times
 
-        raise KeyError(
-            "Missing required keys in "
-            f"test_sequences.npz: {missing}"
-        )
-
-    X = data["X"].astype(
-        np.float32
-    )
-
-    y = data["y"].astype(
-        np.float32
-    )
-
-    run_ids = np.asarray(
-        data["Run_ID"]
-    ).astype(int)
-
-    times = np.asarray(
-        data["Time"]
-    ).astype(float)
-
-    return (
-        X,
-        y,
-        run_ids,
-        times,
-    )
-
-
-# ==============================================================
-# LOAD GROUND TRUTH
-# ==============================================================
 
 def load_ground_truth():
-
-    """
-    Load complete ground-truth dynamics.
-    """
-
-    gt = pd.read_csv(
-        GT_PATH
-    )
-
-    required_columns = [
-        "Run_ID",
-        "Time",
-        "instability_flag",
-        "stability_margin",
-        "beta",
-        "yaw_rate",
-    ]
-
-    missing = [
-        column
-        for column in required_columns
-        if column not in gt.columns
-    ]
-
+    gt = pd.read_csv(GT_PATH)
+    required = {"Run_ID", "Time", "instability_flag", "stability_margin", "beta", "yaw_rate"}
+    missing = required.difference(gt.columns)
     if missing:
-
-        raise ValueError(
-            "Ground-truth file is missing "
-            f"columns: {missing}"
+        raise ValueError(f"Ground-truth file missing columns: {sorted(missing)}")
+    gt["Run_ID"] = gt["Run_ID"].astype(int)
+    gt["Time"] = gt["Time"].astype(float)
+    # CSV bool values can be either bools or strings depending on pandas/version.
+    if gt["instability_flag"].dtype != bool:
+        gt["instability_flag"] = gt["instability_flag"].astype(str).str.lower().map(
+            {"true": True, "false": False, "1": True, "0": False}
         )
-
-    gt["Run_ID"] = (
-        gt["Run_ID"]
-        .astype(int)
-    )
-
-    gt["Time"] = (
-        gt["Time"]
-        .astype(float)
-    )
-
-    gt["instability_flag"] = (
-        gt["instability_flag"]
-        .astype(bool)
-    )
-
+    if gt["instability_flag"].isna().any():
+        raise ValueError("Could not parse some instability_flag values.")
     return gt
 
 
-# ==============================================================
-# BUILD TEST TIMELINE
-# ==============================================================
+def extract_events(gt):
+    events = []
+    event_id = 0
+    for run_id, frame in gt.groupby("Run_ID", sort=True):
+        frame = frame.sort_values("Time").reset_index(drop=True)
+        flags = frame["instability_flag"].to_numpy(dtype=bool)
+        i = 0
+        while i < len(frame):
+            if not flags[i]:
+                i += 1
+                continue
+            start = i
+            while i + 1 < len(frame) and flags[i + 1]:
+                i += 1
+            event = frame.iloc[start:i + 1]
+            event_id += 1
+            events.append({
+                "Run_ID": int(run_id),
+                "event_id": event_id,
+                "onset_time": float(event["Time"].iloc[0]),
+                "end_time": float(event["Time"].iloc[-1]),
+                "duration_s": float(event["Time"].iloc[-1] - event["Time"].iloc[0]),
+                "minimum_margin": float(event["stability_margin"].min()),
+                "max_abs_beta": float(event["beta"].abs().max()),
+                "max_abs_yaw_rate": float(event["yaw_rate"].abs().max()),
+            })
+            i += 1
+    return pd.DataFrame(events, columns=[
+        "Run_ID", "event_id", "onset_time", "end_time", "duration_s",
+        "minimum_margin", "max_abs_beta", "max_abs_yaw_rate"
+    ])
 
-def build_test_timeline(
-    run_ids,
-    times,
-):
 
-    """
-    Create a timeline connecting every prediction
-    to its Run_ID and physical timestamp.
-
-    The row/sample index is preserved so that prediction
-    arrays can be mapped back to the correct run.
-    """
-
-    timeline = pd.DataFrame({
-
-        "Run_ID":
-            np.asarray(run_ids)
-            .astype(int),
-
-        "Time":
-            np.asarray(times)
-            .astype(float),
-
+def build_timeline(run_ids, times):
+    return pd.DataFrame({
+        "sample_index": np.arange(len(run_ids), dtype=int),
+        "Run_ID": np.asarray(run_ids, dtype=int),
+        "Time": np.asarray(times, dtype=float),
     })
 
-    timeline = timeline.reset_index()
 
-    timeline = timeline.rename(
-        columns={
-            "index": "sample_index"
-        }
-    )
-
-    return timeline
-
-
-# ==============================================================
-# EXTRACT GROUND-TRUTH INSTABILITY EVENTS
-# ==============================================================
-
-def extract_events(gt):
-
-    """
-    Extract continuous instability regions.
-
-    Each continuous instability region is treated as
-    one ground-truth instability event.
-    """
-
-    events = []
-
-    global_event_id = 0
-
-    for run_id, run_df in gt.groupby(
-        "Run_ID"
-    ):
-
-        run_df = (
-            run_df
-            .sort_values("Time")
-            .reset_index(drop=True)
-        )
-
-        flag = (
-            run_df["instability_flag"]
-            .astype(bool)
-            .to_numpy()
-        )
-
-        i = 0
-
-        while i < len(run_df):
-
-            # --------------------------------------------------
-            # Find event start
-            # --------------------------------------------------
-
-            if not flag[i]:
-
-                i += 1
-
-                continue
-
-            start = i
-
-            # --------------------------------------------------
-            # Find event end
-            # --------------------------------------------------
-
-            while (
-                i + 1 < len(run_df)
-                and flag[i + 1]
-            ):
-
-                i += 1
-
-            end = i
-
-            event = (
-                run_df
-                .iloc[start:end + 1]
-            )
-
-            global_event_id += 1
-
-            events.append({
-
-                "Run_ID":
-                    int(run_id),
-
-                "event_id":
-                    global_event_id,
-
-                "onset_time":
-                    float(
-                        event["Time"]
-                        .iloc[0]
-                    ),
-
-                "end_time":
-                    float(
-                        event["Time"]
-                        .iloc[-1]
-                    ),
-
-                "duration_s":
-                    float(
-                        event["Time"]
-                        .iloc[-1]
-                        -
-                        event["Time"]
-                        .iloc[0]
-                    ),
-
-                "minimum_margin":
-                    float(
-                        event[
-                            "stability_margin"
-                        ].min()
-                    ),
-
-                "max_abs_beta":
-                    float(
-                        event[
-                            "beta"
-                        ].abs().max()
-                    ),
-
-                "max_abs_yaw_rate":
-                    float(
-                        event[
-                            "yaw_rate"
-                        ].abs().max()
-                    ),
-            })
-
-            i += 1
-
-    return pd.DataFrame(
-        events
-    )
-
-
-# ==============================================================
-# FIND WARNING EPISODES
-# ==============================================================
-
-def find_warning_episodes(
-    timeline,
-    predictions,
-    threshold,
-):
-
-    """
-    Convert sample-level predictions into
-    independent warning episodes.
-
-    Step 1:
-        predicted margin < threshold
-
-    Step 2:
-        require CONSECUTIVE_WARNINGS
-
-    Step 3:
-        group nearby warning samples into
-        one warning episode.
-    """
-
+def find_warning_episodes(timeline, predictions, threshold):
+    """Group sustained threshold crossings into episodes, independently per run."""
+    predictions = np.asarray(predictions, dtype=float)
+    if len(predictions) != len(timeline):
+        raise ValueError("Prediction count does not match timeline length.")
+    if not np.isfinite(predictions).all():
+        raise ValueError("Predictions contain NaN or infinite values.")
     episodes = []
+    for run_id, frame in timeline.groupby("Run_ID", sort=True):
+        frame = frame.sort_values("Time").reset_index(drop=True)
+        indices = frame["sample_index"].to_numpy(dtype=int)
+        times = frame["Time"].to_numpy(dtype=float)
+        flags = predictions[indices] < threshold
 
-    for run_id, run_df in timeline.groupby(
-        "Run_ID"
-    ):
+        sustained = np.zeros(len(flags), dtype=bool)
+        run_length = 0
+        for i, flag in enumerate(flags):
+            run_length = run_length + 1 if flag else 0
+            if run_length >= CONSECUTIVE_WARNINGS:
+                sustained[i - CONSECUTIVE_WARNINGS + 1:i + 1] = True
 
-        run_df = (
-            run_df
-            .sort_values("Time")
-            .reset_index(drop=True)
-        )
+        idx = np.flatnonzero(sustained)
+        if len(idx) == 0:
+            continue
+        groups = []
+        start = previous = int(idx[0])
+        for current in idx[1:]:
+            current = int(current)
+            if times[current] - times[previous] > WARNING_GAP_S:
+                groups.append((start, previous))
+                start = current
+            previous = current
+        groups.append((start, previous))
 
-        indices = (
-            run_df[
-                "sample_index"
-            ]
-            .to_numpy()
-        )
+        for start, end in groups:
+            episode_idx = np.arange(start, end + 1)
+            episodes.append({
+                "Run_ID": int(run_id),
+                "warning_start": float(times[start]),
+                "warning_end": float(times[end]),
+                "duration_s": float(times[end] - times[start]),
+                "minimum_prediction": float(predictions[indices[episode_idx]].min()),
+            })
+    return pd.DataFrame(episodes, columns=[
+        "Run_ID", "warning_start", "warning_end", "duration_s", "minimum_prediction"
+    ])
 
-        times = (
-            run_df["Time"]
-            .to_numpy()
-        )
 
-        pred = predictions[
-            indices
+def match_warnings_to_events(events, warnings):
+    """One-to-one match each event to its closest preceding relevant warning.
+
+    A warning is a true early warning only if its start is no later than event
+    onset and no more than MAX_WARNING_WINDOW_S earlier. Warnings after onset
+    are classified as late, not successful detections. Each warning can match
+    at most one event.
+    """
+    event_rows = []
+    used_warning_ids = set()
+    warning_frame = warnings.reset_index(drop=True).copy()
+    warning_frame["warning_id"] = np.arange(len(warning_frame), dtype=int)
+
+    for _, event in events.sort_values(["Run_ID", "onset_time"]).iterrows():
+        run_id = int(event["Run_ID"])
+        onset = float(event["onset_time"])
+        same_run = warning_frame[warning_frame["Run_ID"] == run_id]
+        available = same_run[~same_run["warning_id"].isin(used_warning_ids)]
+
+        eligible = available[
+            (available["warning_start"] <= onset)
+            & (available["warning_start"] >= onset - MAX_WARNING_WINDOW_S)
+        ]
+        late = available[
+            (available["warning_start"] > onset)
+            & (available["warning_start"] <= float(event["end_time"]))
         ]
 
-        # ------------------------------------------------------
-        # Step 1: threshold
-        # ------------------------------------------------------
+        matched = False
+        warning_id = np.nan
+        warning_time = np.nan
+        lead_time = np.nan
+        late_warning = False
+        if not eligible.empty:
+            # Most recent warning before onset gives the conservative usable lead.
+            chosen = eligible.sort_values("warning_start").iloc[-1]
+            warning_id = int(chosen["warning_id"])
+            used_warning_ids.add(warning_id)
+            warning_time = float(chosen["warning_start"])
+            lead_time = onset - warning_time
+            matched = True
+        elif not late.empty:
+            # Record late detection separately; do not mark it as early detection.
+            chosen = late.sort_values("warning_start").iloc[0]
+            warning_id = int(chosen["warning_id"])
+            used_warning_ids.add(warning_id)
+            warning_time = float(chosen["warning_start"])
+            late_warning = True
 
-        is_warning = (
-            pred < threshold
-        )
-
-        # ------------------------------------------------------
-        # Step 2: require sustained warning
-        # ------------------------------------------------------
-
-        sustained = np.zeros(
-            len(is_warning),
-            dtype=bool
-        )
-
-        run_length = 0
-
-        for i, warning in enumerate(
-            is_warning
-        ):
-
-            if warning:
-
-                run_length += 1
-
-            else:
-
-                run_length = 0
-
-            if (
-                run_length
-                >= CONSECUTIVE_WARNINGS
-            ):
-
-                start_idx = (
-                    i
-                    - CONSECUTIVE_WARNINGS
-                    + 1
-                )
-
-                sustained[
-                    start_idx:
-                    i + 1
-                ] = True
-
-        # ------------------------------------------------------
-        # Step 3: collect sustained-warning samples
-        # ------------------------------------------------------
-
-        warning_indices = np.where(
-            sustained
-        )[0]
-
-        if len(warning_indices) == 0:
-
-            continue
-
-        # ------------------------------------------------------
-        # Group sustained warnings
-        # into warning episodes
-        # ------------------------------------------------------
-
-        episode_start = (
-            warning_indices[0]
-        )
-
-        previous = (
-            warning_indices[0]
-        )
-
-        for current in (
-            warning_indices[1:]
-        ):
-
-            time_gap = (
-                times[current]
-                -
-                times[previous]
-            )
-
-            # A sufficiently large gap means
-            # a new warning episode.
-            if (
-                time_gap
-                > WARNING_GAP_S
-            ):
-
-                episode_indices = (
-                    np.arange(
-                        episode_start,
-                        previous + 1
-                    )
-                )
-
-                episode_predictions = (
-                    pred[
-                        episode_indices
-                    ]
-                )
-
-                episodes.append({
-
-                    "Run_ID":
-                        int(run_id),
-
-                    "warning_start":
-                        float(
-                            times[
-                                episode_start
-                            ]
-                        ),
-
-                    "warning_end":
-                        float(
-                            times[
-                                previous
-                            ]
-                        ),
-
-                    "duration_s":
-                        float(
-                            times[
-                                previous
-                            ]
-                            -
-                            times[
-                                episode_start
-                            ]
-                        ),
-
-                    "minimum_prediction":
-                        float(
-                            episode_predictions
-                            .min()
-                        ),
-                })
-
-                episode_start = current
-
-            previous = current
-
-        # ------------------------------------------------------
-        # Save final warning episode
-        # ------------------------------------------------------
-
-        episode_indices = (
-            np.arange(
-                episode_start,
-                previous + 1
-            )
-        )
-
-        episode_predictions = (
-            pred[
-                episode_indices
-            ]
-        )
-
-        episodes.append({
-
-            "Run_ID":
-                int(run_id),
-
-            "warning_start":
-                float(
-                    times[
-                        episode_start
-                    ]
-                ),
-
-            "warning_end":
-                float(
-                    times[
-                        previous
-                    ]
-                ),
-
-            "duration_s":
-                float(
-                    times[
-                        previous
-                    ]
-                    -
-                    times[
-                        episode_start
-                    ]
-                ),
-
-            "minimum_prediction":
-                float(
-                    episode_predictions
-                    .min()
-                ),
+        row = event.to_dict()
+        row.update({
+            "early_warning_detected": matched,
+            "late_warning_only": late_warning,
+            "matched_warning_id": warning_id,
+            "first_warning_time": warning_time,
+            "lead_time_s": lead_time,
         })
+        event_rows.append(row)
 
-    if len(episodes) == 0:
-
-        return pd.DataFrame(
-            columns=[
-                "Run_ID",
-                "warning_start",
-                "warning_end",
-                "duration_s",
-                "minimum_prediction",
-            ]
-        )
-
-    return pd.DataFrame(
-        episodes
-    )
+    event_results = pd.DataFrame(event_rows)
+    if warning_frame.empty:
+        false_warnings = warning_frame.copy()
+    else:
+        # Any warning not matched to an event is a false/unassociated episode.
+        false_warnings = warning_frame[
+            ~warning_frame["warning_id"].isin(used_warning_ids)
+        ].copy()
+        false_warnings["classification"] = "unassociated_warning"
+    return event_results, false_warnings
 
 
-# ==============================================================
-# MATCH WARNING EPISODES TO EVENTS
-# ==============================================================
-
-def calculate_event_lead_times(
-    events,
-    warning_episodes,
-):
-
-    """
-    For every actual instability event, identify
-    the earliest relevant warning episode.
-
-    Lead time:
-
-        event onset - warning start
-    """
-
-    results = []
-
-    for _, event in events.iterrows():
-
-        run_id = int(
-            event["Run_ID"]
-        )
-
-        onset = float(
-            event["onset_time"]
-        )
-
-        candidate_warnings = (
-            warning_episodes[
-                warning_episodes[
-                    "Run_ID"
-                ] == run_id
-            ]
-            .copy()
-        )
-
-        # Warning must start before event onset.
-        candidate_warnings = (
-            candidate_warnings[
-                candidate_warnings[
-                    "warning_start"
-                ] <= onset
-            ]
-        )
-
-        # Warning must be close enough to the
-        # actual event to be considered relevant.
-        candidate_warnings = (
-            candidate_warnings[
-                candidate_warnings[
-                    "warning_start"
-                ]
-                >=
-                onset
-                -
-                MAX_WARNING_WINDOW_S
-            ]
-        )
-
-        if len(
-            candidate_warnings
-        ) == 0:
-
-            results.append({
-
-                **event.to_dict(),
-
-                "warning_issued":
-                    False,
-
-                "first_warning_time":
-                    np.nan,
-
-                "lead_time_s":
-                    np.nan,
-
-            })
-
-            continue
-
-        # ------------------------------------------------------
-        # Earliest relevant warning
-        # ------------------------------------------------------
-
-        warning = (
-            candidate_warnings
-            .sort_values(
-                "warning_start"
-            )
-            .iloc[0]
-        )
-
-        warning_time = float(
-            warning[
-                "warning_start"
-            ]
-        )
-
-        lead_time = (
-            onset
-            -
-            warning_time
-        )
-
-        results.append({
-
-            **event.to_dict(),
-
-            "warning_issued":
-                True,
-
-            "first_warning_time":
-                warning_time,
-
-            "lead_time_s":
-                lead_time,
-
-        })
-
-    return pd.DataFrame(
-        results
-    )
-
-
-# ==============================================================
-# FALSE WARNING EPISODES
-# ==============================================================
-
-def calculate_false_alarm_episodes(
-    events,
-    warning_episodes,
-):
-
-    """
-    A warning episode is a false warning if it cannot
-    be associated with any actual instability event
-    within MAX_WARNING_WINDOW_S before event onset.
-    """
-
-    false_alarms = []
-
-    for _, warning in (
-        warning_episodes.iterrows()
-    ):
-
-        run_id = int(
-            warning["Run_ID"]
-        )
-
-        warning_time = float(
-            warning["warning_start"]
-        )
-
-        run_events = (
-            events[
-                events["Run_ID"] == run_id
-            ]
-        )
-
-        associated = False
-
-        for _, event in (
-            run_events.iterrows()
-        ):
-
-            onset = float(
-                event["onset_time"]
-            )
-
-            if (
-                onset
-                -
-                MAX_WARNING_WINDOW_S
-                <= warning_time
-                <= onset
-            ):
-
-                associated = True
-
-                break
-
-        if not associated:
-
-            false_alarms.append(
-                warning.to_dict()
-            )
-
-    if len(false_alarms) == 0:
-
-        return pd.DataFrame(
-            columns=warning_episodes.columns
-        )
-
-    return pd.DataFrame(
-        false_alarms
-    )
-
-
-# ==============================================================
-# MODEL EVALUATION
-# ==============================================================
-
-def evaluate_model(
-    model_name,
-    prediction_path,
-    y_test,
-    timeline,
-    events,
-):
-
-    """
-    Evaluate one model across all forecast horizons.
-    """
-
-    predictions = np.load(
-        prediction_path
-    )
-
-    # ----------------------------------------------------------
-    # Shape validation
-    # ----------------------------------------------------------
-
-    if predictions.shape != y_test.shape:
-
+def evaluate_model(model_name, prediction_path, y_true, timeline, events, calibrated_thresholds=None):
+    predictions = np.load(prediction_path)
+    if predictions.shape != y_true.shape:
         raise ValueError(
-
-            f"{model_name}: prediction shape "
-            f"{predictions.shape} does not match "
-            f"y_test shape {y_test.shape}"
-
+            f"{model_name} prediction shape {predictions.shape} != target shape {y_true.shape}"
         )
-
-    results = []
-
+    rows = []
     event_tables = []
-
-    print(
-        "\n"
-        + "=" * 70
-    )
-
-    print(
-        model_name
-    )
-
-    print(
-        "=" * 70
-    )
-
-    # ----------------------------------------------------------
-    # Each horizon
-    # ----------------------------------------------------------
-
-    for (
-        horizon_name,
-        horizon_index
-    ) in HORIZONS.items():
-
-        print(
-            f"\nEvaluating {horizon_name}..."
-        )
-
-        horizon_predictions = (
-            predictions[
-                :,
-                horizon_index
-            ]
-        )
-
-        # ------------------------------------------------------
-        # Warning episodes
-        # ------------------------------------------------------
-
-        warning_episodes = (
-            find_warning_episodes(
-
-                timeline=timeline,
-
-                predictions=
-                    horizon_predictions,
-
-                threshold=THRESHOLD,
-            )
-        )
-
-        # ------------------------------------------------------
-        # Match warnings to events
-        # ------------------------------------------------------
-
-        event_results = (
-            calculate_event_lead_times(
-
-                events=events,
-
-                warning_episodes=
-                    warning_episodes,
-            )
-        )
-
-        # ------------------------------------------------------
-        # False-warning episodes
-        # ------------------------------------------------------
-
-        false_alarm_df = (
-            calculate_false_alarm_episodes(
-
-                events=events,
-
-                warning_episodes=
-                    warning_episodes,
-            )
-        )
-
-        # ------------------------------------------------------
-        # Event statistics
-        # ------------------------------------------------------
-
-        total_events = len(
-            events
-        )
-
-        detected = int(
-            event_results[
-                "warning_issued"
-            ].sum()
-        )
-
-        missed = (
-            total_events
-            -
-            detected
-        )
-
-        detection_rate = (
-            detected / total_events
-            if total_events > 0
-            else np.nan
-        )
-
-        # ------------------------------------------------------
-        # Lead-time statistics
-        # ------------------------------------------------------
-
-        detected_leads = (
-            event_results.loc[
-                event_results[
-                    "warning_issued"
-                ],
-                "lead_time_s",
-            ]
-        )
-
-        if len(
-            detected_leads
-        ) > 0:
-
-            mean_lead = float(
-                detected_leads.mean()
-            )
-
-            median_lead = float(
-                detected_leads.median()
-            )
-
-            min_lead = float(
-                detected_leads.min()
-            )
-
-            max_lead = float(
-                detected_leads.max()
-            )
-
-            std_lead = float(
-                detected_leads.std(
-                    ddof=1
-                )
-            )
-
-            q25_lead = float(
-                detected_leads.quantile(
-                    0.25
-                )
-            )
-
-            q75_lead = float(
-                detected_leads.quantile(
-                    0.75
-                )
-            )
-
-        else:
-
-            mean_lead = np.nan
-            median_lead = np.nan
-            min_lead = np.nan
-            max_lead = np.nan
-            std_lead = np.nan
-            q25_lead = np.nan
-            q75_lead = np.nan
-
-        # ------------------------------------------------------
-        # Warning episode statistics
-        # ------------------------------------------------------
-
-        total_warning_episodes = len(
-            warning_episodes
-        )
-
-        false_warning_episodes = len(
-            false_alarm_df
-        )
-
-        # ------------------------------------------------------
-        # Save summary
-        # ------------------------------------------------------
-
-        results.append({
-
-            "model":
-                model_name,
-
-            "horizon":
-                horizon_name,
-
-            "threshold":
-                THRESHOLD,
-
-            "total_events":
-                total_events,
-
-            "detected_events":
-                detected,
-
-            "missed_events":
-                missed,
-
-            "event_detection_rate":
-                detection_rate,
-
-            "mean_lead_time_s":
-                mean_lead,
-
-            "median_lead_time_s":
-                median_lead,
-
-            "std_lead_time_s":
-                std_lead,
-
-            "minimum_lead_time_s":
-                min_lead,
-
-            "maximum_lead_time_s":
-                max_lead,
-
-            "lead_time_q25_s":
-                q25_lead,
-
-            "lead_time_q75_s":
-                q75_lead,
-
-            "total_warning_episodes":
-                total_warning_episodes,
-
-            "false_warning_episodes":
-                false_warning_episodes,
+    false_tables = []
+    for horizon, column in HORIZONS.items():
+        threshold = (calibrated_thresholds or {}).get(model_name, {}).get(horizon, THRESHOLD)
+        warnings = find_warning_episodes(timeline, predictions[:, column], threshold)
+        event_results, false_warnings = match_warnings_to_events(events, warnings)
+        leads = event_results.loc[event_results["early_warning_detected"], "lead_time_s"]
+        total_events = len(event_results)
+        detected = int(event_results["early_warning_detected"].sum()) if total_events else 0
+        late_count = int(event_results["late_warning_only"].sum()) if total_events else 0
+        rows.append({
+            "model": model_name,
+            "horizon": horizon,
+            "threshold": threshold,
+            "total_events": total_events,
+            "early_detected_events": detected,
+            "missed_events": total_events - detected,
+            "late_warning_events": late_count,
+            "event_detection_rate": detected / total_events if total_events else np.nan,
+            "mean_lead_time_s": float(leads.mean()) if len(leads) else np.nan,
+            "median_lead_time_s": float(leads.median()) if len(leads) else np.nan,
+            "std_lead_time_s": float(leads.std(ddof=1)) if len(leads) > 1 else np.nan,
+            "lead_time_q25_s": float(leads.quantile(0.25)) if len(leads) else np.nan,
+            "lead_time_q75_s": float(leads.quantile(0.75)) if len(leads) else np.nan,
+            "total_warning_episodes": len(warnings),
+            "false_warning_episodes": len(false_warnings),
+            "false_warning_episodes_per_test_run": (
+                len(false_warnings) / timeline["Run_ID"].nunique()
+                if timeline["Run_ID"].nunique() else np.nan
+            ),
         })
-
-        # ------------------------------------------------------
-        # Save event-level table
-        # ------------------------------------------------------
-
-        event_results = (
-            event_results.copy()
-        )
-
-        event_results[
-            "model"
-        ] = model_name
-
-        event_results[
-            "horizon"
-        ] = horizon_name
-
-        event_tables.append(
-            event_results
-        )
-
-        # ------------------------------------------------------
-        # Print results
-        # ------------------------------------------------------
-
+        if not event_results.empty:
+            event_results["model"] = model_name
+            event_results["horizon"] = horizon
+            event_tables.append(event_results)
+        if not false_warnings.empty:
+            false_warnings["model"] = model_name
+            false_warnings["horizon"] = horizon
+            false_tables.append(false_warnings)
         print(
-            f"  Total events          : "
-            f"{total_events}"
+            f"{model_name} {horizon}: early detection={detected}/{total_events}, "
+            f"late-only={late_count}, false/unassociated warnings={len(false_warnings)}, "
+            f"median lead={leads.median() if len(leads) else float('nan'):.3f}s"
         )
-
-        print(
-            f"  Detected events       : "
-            f"{detected}"
-        )
-
-        print(
-            f"  Missed events         : "
-            f"{missed}"
-        )
-
-        print(
-            f"  Detection rate        : "
-            f"{detection_rate:.4f}"
-        )
-
-        print(
-            f"  Mean lead time        : "
-            f"{mean_lead:.4f} s"
-        )
-
-        print(
-            f"  Median lead time      : "
-            f"{median_lead:.4f} s"
-        )
-
-        print(
-            f"  Lead-time std         : "
-            f"{std_lead:.4f} s"
-        )
-
-        print(
-            f"  Lead-time Q25         : "
-            f"{q25_lead:.4f} s"
-        )
-
-        print(
-            f"  Lead-time Q75         : "
-            f"{q75_lead:.4f} s"
-        )
-
-        print(
-            f"  Warning episodes      : "
-            f"{total_warning_episodes}"
-        )
-
-        print(
-            f"  False-warning episodes: "
-            f"{false_warning_episodes}"
-        )
-
     return (
-        pd.DataFrame(results),
-        pd.concat(
-            event_tables,
-            ignore_index=True
-        ),
+        pd.DataFrame(rows),
+        pd.concat(event_tables, ignore_index=True) if event_tables else pd.DataFrame(),
+        pd.concat(false_tables, ignore_index=True) if false_tables else pd.DataFrame(),
     )
 
 
-# ==============================================================
-# MAIN
-# ==============================================================
+def load_calibrated_thresholds():
+    """Read thresholds produced from validation predictions only."""
+    if not THRESHOLD_PATH.exists():
+        print(f"WARNING: {THRESHOLD_PATH} not found; using threshold={THRESHOLD:.3f} for all models.")
+        return {}
+    archive = np.load(THRESHOLD_PATH, allow_pickle=False)
+    result = {}
+    for model_name in MODELS:
+        result[model_name] = {}
+        for horizon in HORIZONS:
+            key = f"{model_name}_{horizon}"
+            if key in archive.files:
+                value = float(np.asarray(archive[key]).item())
+                if not np.isfinite(value):
+                    raise ValueError(f"Non-finite calibrated threshold: {key}")
+                result[model_name][horizon] = value
+            else:
+                print(f"WARNING: threshold {key} missing; using {THRESHOLD:.3f}.")
+    return result
+
 
 def main():
-
-    print("=" * 70)
-
-    print(
-        "EVENT-LEVEL EARLY-WARNING "
-        "LEAD-TIME EVALUATION"
-    )
-
-    print("=" * 70)
-
-    # ==========================================================
-    # LOAD TEST SEQUENCES
-    # ==========================================================
-
-    (
-        X_test,
-        y_test,
-        run_ids,
-        times,
-    ) = load_test_data()
-
-    print(
-        "\nTEST DATA"
-    )
-
-    print(
-        "-" * 70
-    )
-
-    print(
-        "X_test shape:",
-        X_test.shape
-    )
-
-    print(
-        "y_test shape:",
-        y_test.shape
-    )
-
-    print(
-        "Unique test runs:",
-        len(
-            np.unique(
-                run_ids
-            )
-        )
-    )
-
-    # ==========================================================
-    # BUILD TIMELINE
-    # ==========================================================
-
-    timeline = (
-        build_test_timeline(
-            run_ids,
-            times,
-        )
-    )
-
-    # ==========================================================
-    # LOAD GROUND TRUTH
-    # ==========================================================
-
+    calibrated_thresholds = load_calibrated_thresholds()
+    _, y_test, run_ids, times = load_test_data()
+    timeline = build_timeline(run_ids, times)
     gt = load_ground_truth()
+    test_run_ids = set(np.unique(run_ids).astype(int))
+    gt_test = gt[gt["Run_ID"].isin(test_run_ids)].copy()
+    events = extract_events(gt_test)
+    if events.empty:
+        raise RuntimeError("No ground-truth instability events found in test runs.")
 
-    # ==========================================================
-    # RESTRICT TO TEST RUNS
-    # ==========================================================
-
-    test_run_ids = set(
-        np.unique(
-            run_ids
-        ).astype(int)
-    )
-
-    gt_test = gt[
-        gt["Run_ID"].isin(
-            test_run_ids
-        )
-    ].copy()
-
-    # ==========================================================
-    # EXTRACT EVENTS
-    # ==========================================================
-
-    events = extract_events(
-        gt_test
-    )
-
-    print(
-        "\nGROUND-TRUTH EVENTS"
-    )
-
-    print(
-        "-" * 70
-    )
-
-    print(
-        "Test instability events:",
-        len(events)
-    )
-
-    print(
-        "Test unstable runs:",
-        events["Run_ID"].nunique()
-        if len(events) > 0
-        else 0
-    )
-
-    # ==========================================================
-    # MODEL EVALUATION
-    # ==========================================================
-
-    all_results = []
-
-    all_event_results = []
-
-    for (
-        model_name,
-        prediction_path
-    ) in MODELS.items():
-
-        # ------------------------------------------------------
-        # Check prediction file
-        # ------------------------------------------------------
-
+    summaries, event_tables, false_tables = [], [], []
+    for model_name, prediction_path in MODELS.items():
         if not prediction_path.exists():
-
-            print(
-                "\nWARNING:"
-            )
-
-            print(
-                "Prediction file not found:"
-            )
-
-            print(
-                prediction_path
-            )
-
-            continue
-
-        # ------------------------------------------------------
-        # Evaluate
-        # ------------------------------------------------------
-
-        (
-            results,
-            event_results,
-        ) = evaluate_model(
-
-            model_name=
-                model_name,
-
-            prediction_path=
-                prediction_path,
-
-            y_test=
-                y_test,
-
-            timeline=
-                timeline,
-
-            events=
-                events,
+            raise FileNotFoundError(f"Missing test predictions for {model_name}: {prediction_path}")
+        summary, event_details, false_details = evaluate_model(
+            model_name, prediction_path, y_test, timeline, events, calibrated_thresholds
         )
+        summaries.append(summary)
+        if not event_details.empty:
+            event_tables.append(event_details)
+        if not false_details.empty:
+            false_tables.append(false_details)
 
-        all_results.append(
-            results
+    TABLE_DIR.mkdir(parents=True, exist_ok=True)
+    summary = pd.concat(summaries, ignore_index=True)
+    summary.to_csv(TABLE_DIR / "event_lead_time_metrics.csv", index=False)
+    if event_tables:
+        pd.concat(event_tables, ignore_index=True).to_csv(
+            TABLE_DIR / "event_lead_time_details.csv", index=False
         )
-
-        all_event_results.append(
-            event_results
+    if false_tables:
+        pd.concat(false_tables, ignore_index=True).to_csv(
+            TABLE_DIR / "event_false_warning_details.csv", index=False
         )
+    print("\nEVENT-LEVEL SUMMARY")
+    print(summary.to_string(index=False))
+    print(f"\nSaved results to {TABLE_DIR}")
 
-    # ==========================================================
-    # CHECK THAT SOMETHING WAS EVALUATED
-    # ==========================================================
-
-    if len(all_results) == 0:
-
-        raise FileNotFoundError(
-            "No prediction files were found."
-        )
-
-    # ==========================================================
-    # COMBINE RESULTS
-    # ==========================================================
-
-    summary = pd.concat(
-        all_results,
-        ignore_index=True
-    )
-
-    event_level = pd.concat(
-        all_event_results,
-        ignore_index=True
-    )
-
-    # ==========================================================
-    # CREATE OUTPUT DIRECTORY
-    # ==========================================================
-
-    TABLE_DIR.mkdir(
-        parents=True,
-        exist_ok=True
-    )
-
-    # ==========================================================
-    # SAVE SUMMARY
-    # ==========================================================
-
-    summary_path = (
-        TABLE_DIR
-        / "event_lead_time_metrics.csv"
-    )
-
-    summary.to_csv(
-        summary_path,
-        index=False
-    )
-
-    # ==========================================================
-    # SAVE EVENT DETAILS
-    # ==========================================================
-
-    event_path = (
-        TABLE_DIR
-        / "event_lead_time_details.csv"
-    )
-
-    event_level.to_csv(
-        event_path,
-        index=False
-    )
-
-    # ==========================================================
-    # FINAL RESULTS
-    # ==========================================================
-
-    print(
-        "\n"
-    )
-
-    print(
-        "=" * 70
-    )
-
-    print(
-        "FINAL EVENT-LEVEL RESULTS"
-    )
-
-    print(
-        "=" * 70
-    )
-
-    display_columns = [
-
-        "model",
-
-        "horizon",
-
-        "threshold",
-
-        "total_events",
-
-        "detected_events",
-
-        "missed_events",
-
-        "event_detection_rate",
-
-        "mean_lead_time_s",
-
-        "median_lead_time_s",
-
-        "std_lead_time_s",
-
-        "lead_time_q25_s",
-
-        "lead_time_q75_s",
-
-        "total_warning_episodes",
-
-        "false_warning_episodes",
-    ]
-
-    print(
-        summary[
-            display_columns
-        ].to_string(
-            index=False
-        )
-    )
-
-    # ==========================================================
-    # SAVE PATHS
-    # ==========================================================
-
-    print(
-        "\nSaved:"
-    )
-
-    print(
-        summary_path
-    )
-
-    print(
-        event_path
-    )
-
-    # ==========================================================
-    # COMPLETE
-    # ==========================================================
-
-    print(
-        "\n"
-        + "=" * 70
-    )
-
-    print(
-        "EVENT LEAD-TIME EVALUATION COMPLETE"
-    )
-
-    print(
-        "=" * 70
-    )
-
-
-# ==============================================================
-# ENTRY POINT
-# ==============================================================
 
 if __name__ == "__main__":
-
     main()

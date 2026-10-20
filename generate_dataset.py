@@ -13,11 +13,14 @@ Generates the full near-limit vehicle stability dataset:
 
 Join key: Run_ID + Time (both files share the same downsampled time grid).
 """
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
 from vehicle_model import rk4_step, dynamics, ALPHA_R_PEAK, VEHICLE
 from maneuvers import PROFILES, DURATIONS
+from preprocessing.sensor_noise import add_sensor_noise
 
 RNG = np.random.default_rng(42)
 
@@ -29,6 +32,8 @@ MU_LEVELS = {'dry': 0.9, 'wet': 0.5, 'ice_snow': 0.2}
 SPEED_LEVELS_KMH = [50, 70, 90, 110]
 AMPLITUDE_DEG = [1, 2, 3, 5, 7, 10]
 MANEUVERS = list(PROFILES.keys())
+PROJECT_ROOT = Path(__file__).resolve().parent
+RAW_DATA_DIR = PROJECT_ROOT / 'data' / 'raw'
 
 MIN_SUSTAIN_SAMPLES = 3  # at 20Hz, ~0.15s sustained past-peak to count as an instability event
 
@@ -76,33 +81,6 @@ def simulate_run(maneuver, mu_name, mu, speed_kmh, amp_deg, run_id):
     return df
 
 
-def add_sensor_noise(gt, rng):
-    """Low-cost retrofit-grade sensor model applied to ground truth.
-    Noise levels are illustrative (MEMS-consumer-grade order of magnitude),
-    NOT calibrated against a specific datasheet -- documented as such."""
-    n = len(gt)
-    yaw_rate_meas = gt['yaw_rate'].values + rng.normal(0, np.radians(0.5), n) \
-        + rng.normal(0, np.radians(0.1))  # per-run constant bias term
-    lat_accel_meas = gt['lateral_accel'].values + rng.normal(0, 0.15, n) \
-        + rng.normal(0, 0.05)
-    speed_ms = gt['target_speed_kmh'].values / 3.6
-    speed_meas = speed_ms + rng.normal(0, 0.1, n)
-    speed_meas = np.round(speed_meas / 0.28) * 0.28  # ~1 km/h quantization, typical cheap wheel-speed resolution
-    steer_meas = gt['steer_true'].values + rng.normal(0, np.radians(0.2), n)
-
-    out = pd.DataFrame({
-        'Run_ID': gt['Run_ID'].values,
-        'Time': gt['Time'].values,
-        'yaw_rate_meas': yaw_rate_meas,
-        'lateral_accel_meas': lat_accel_meas,
-        'speed_meas': speed_meas,
-        'steering_angle_meas': steer_meas,
-        'maneuver': gt['maneuver'].values,
-        'mu_surface': gt['mu_surface'].values,
-    })
-    return out
-
-
 def main():
     all_gt, all_meta, run_id = [], [], 0
     for maneuver in MANEUVERS:
@@ -137,11 +115,18 @@ def main():
                  'amplitude_deg', 'steer_true', 'yaw_rate', 'beta', 'lateral_accel',
                  'alpha_f', 'alpha_r', 'stability_margin', 'instability_flag']]
 
-    gt_out.to_csv('/home/claude/dataset_gen/ground_truth_dynamics.csv', index=False)
-    sensor.to_csv('/home/claude/dataset_gen/retrofit_sensor_stream.csv', index=False)
-    meta.to_csv('/home/claude/dataset_gen/run_metadata.csv', index=False)
-    print("\nSaved: ground_truth_dynamics.csv, retrofit_sensor_stream.csv, run_metadata.csv")
+    RAW_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    gt_path = RAW_DATA_DIR / 'ground_truth_dynamics.csv'
+    sensor_path = RAW_DATA_DIR / 'retrofit_sensor_stream.csv'
+    meta_path = RAW_DATA_DIR / 'run_metadata.csv'
 
+    gt_out.to_csv(gt_path, index=False)
+    sensor.to_csv(sensor_path, index=False)
+    meta.to_csv(meta_path, index=False)
+    print("\nSaved dataset files:")
+    print(f"  {gt_path}")
+    print(f"  {sensor_path}")
+    print(f"  {meta_path}")
 
 if __name__ == '__main__':
     main()
