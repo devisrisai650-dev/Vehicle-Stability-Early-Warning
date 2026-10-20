@@ -94,6 +94,29 @@ Run commands from the repository root.
 - Report false/unassociated warning episodes alongside event detection rate and lead-time distributions.
 - For research claims, regenerate all tables from the current committed prediction files and preserve the exact code/data revision used.
 
+## Latest event-level evaluation (20 October 2026)
+
+The current simulated test evaluation contains 39 ground-truth instability events. Warning thresholds were selected using validation predictions. The table below summarizes early event detection, median lead time, and unassociated warning episodes; the full per-model/per-horizon metrics and thresholds are recorded in [`docs/event_level_results_2026-10-20.csv`](docs/event_level_results_2026-10-20.csv).
+
+| Model | Horizon | Early detections | Detection rate | Median lead time (s) | Unassociated warning episodes |
+|---|---:|---:|---:|---:|---:|
+| XGBoost | 0.5 s | 26/39 | 66.7% | 0.85 | 20 |
+| XGBoost | 1.0 s | 26/39 | 66.7% | 0.83 | 17 |
+| XGBoost | 2.0 s | 25/39 | 64.1% | 0.85 | 17 |
+| LSTM | 0.5 s | 24/39 | 61.5% | 0.50 | 7 |
+| LSTM | 1.0 s | 25/39 | 64.1% | 0.60 | 6 |
+| LSTM | 2.0 s | 25/39 | 64.1% | 0.65 | 9 |
+| GRU | 0.5 s | 26/39 | 66.7% | 0.70 | 12 |
+| GRU | 1.0 s | 25/39 | 64.1% | 0.85 | 18 |
+| GRU | 2.0 s | 27/39 | 69.2% | 0.85 | 15 |
+| Hybrid | 0.5 s | 26/39 | 66.7% | 0.80 | 14 |
+| Hybrid | 1.0 s | 26/39 | 66.7% | 0.88 | 15 |
+| Hybrid | 2.0 s | 29/39 | 74.4% | 0.90 | 17 |
+
+These are simulation-only results from the current evaluation run, not real-vehicle validation. The Hybrid model at 2.0 s has the highest early-detection count in this run, but it also produces unassociated warnings; model choice should consider false warnings and lead-time distribution, not detection rate alone. Do not compare these event metrics with stale CSVs from earlier evaluator versions.
+
+Validation performed for this result snapshot: event counts were consistent at 39 across all model/horizon rows; the detail CSV's early-detection counts agreed with non-empty lead-time records; false-warning detail counts matched the summary for all 12 model/horizon combinations; test timestamps were uniformly spaced at approximately 0.05 s; and the current event-lead-time regression tests passed (4 tests). These checks establish internal consistency, not independent validation of the simulator or warning policy.
+
 ## Current limitations and research checklist
 
 - The physics observer is an approximate sensor-only baseline; lateral-velocity integration can drift.
