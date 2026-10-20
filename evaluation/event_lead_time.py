@@ -24,7 +24,8 @@ MODELS = {
     "GRU": PRED_DIR / "gru_test_predictions.npy",
 }
 HORIZONS = {"0.5s": 0, "1.0s": 1, "2.0s": 2}
-THRESHOLD = 0.0  # physics-defined margin boundary; calibrate on validation for final reporting
+THRESHOLD = 0.0  # fallback physics boundary if validation thresholds are unavailable
+THRESHOLD_PATH = PROCESSED / "selected_warning_thresholds.npz"
 CONSECUTIVE_WARNINGS = 2
 WARNING_GAP_S = 0.20
 MAX_WARNING_WINDOW_S = 5.0
@@ -225,7 +226,7 @@ def match_warnings_to_events(events, warnings):
     return event_results, false_warnings
 
 
-def evaluate_model(model_name, prediction_path, y_true, timeline, events):
+def evaluate_model(model_name, prediction_path, y_true, timeline, events, calibrated_thresholds=None):
     predictions = np.load(prediction_path)
     if predictions.shape != y_true.shape:
         raise ValueError(
@@ -235,7 +236,8 @@ def evaluate_model(model_name, prediction_path, y_true, timeline, events):
     event_tables = []
     false_tables = []
     for horizon, column in HORIZONS.items():
-        warnings = find_warning_episodes(timeline, predictions[:, column], THRESHOLD)
+        threshold = (calibrated_thresholds or {}).get(model_name, {}).get(horizon, THRESHOLD)
+        warnings = find_warning_episodes(timeline, predictions[:, column], threshold)
         event_results, false_warnings = match_warnings_to_events(events, warnings)
         leads = event_results.loc[event_results["early_warning_detected"], "lead_time_s"]
         total_events = len(event_results)
@@ -244,7 +246,7 @@ def evaluate_model(model_name, prediction_path, y_true, timeline, events):
         rows.append({
             "model": model_name,
             "horizon": horizon,
-            "threshold": THRESHOLD,
+            "threshold": threshold,
             "total_events": total_events,
             "early_detected_events": detected,
             "missed_events": total_events - detected,
@@ -282,7 +284,29 @@ def evaluate_model(model_name, prediction_path, y_true, timeline, events):
     )
 
 
+def load_calibrated_thresholds():
+    """Read thresholds produced from validation predictions only."""
+    if not THRESHOLD_PATH.exists():
+        print(f"WARNING: {THRESHOLD_PATH} not found; using threshold={THRESHOLD:.3f} for all models.")
+        return {}
+    archive = np.load(THRESHOLD_PATH, allow_pickle=False)
+    result = {}
+    for model_name in MODELS:
+        result[model_name] = {}
+        for horizon in HORIZONS:
+            key = f"{model_name}_{horizon}"
+            if key in archive.files:
+                value = float(np.asarray(archive[key]).item())
+                if not np.isfinite(value):
+                    raise ValueError(f"Non-finite calibrated threshold: {key}")
+                result[model_name][horizon] = value
+            else:
+                print(f"WARNING: threshold {key} missing; using {THRESHOLD:.3f}.")
+    return result
+
+
 def main():
+    calibrated_thresholds = load_calibrated_thresholds()
     _, y_test, run_ids, times = load_test_data()
     timeline = build_timeline(run_ids, times)
     gt = load_ground_truth()
@@ -297,7 +321,7 @@ def main():
         if not prediction_path.exists():
             raise FileNotFoundError(f"Missing test predictions for {model_name}: {prediction_path}")
         summary, event_details, false_details = evaluate_model(
-            model_name, prediction_path, y_test, timeline, events
+            model_name, prediction_path, y_test, timeline, events, calibrated_thresholds
         )
         summaries.append(summary)
         if not event_details.empty:
