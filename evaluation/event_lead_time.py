@@ -22,6 +22,7 @@ MODELS = {
     "XGBoost": PRED_DIR / "xgboost_test_predictions.npy",
     "LSTM": PRED_DIR / "lstm_test_predictions.npy",
     "GRU": PRED_DIR / "gru_test_predictions.npy",
+    "Hybrid": PRED_DIR / "hybrid_test_predictions.npy",
 }
 HORIZONS = {"0.5s": 0, "1.0s": 1, "2.0s": 2}
 THRESHOLD = 0.0  # fallback physics boundary if validation thresholds are unavailable
