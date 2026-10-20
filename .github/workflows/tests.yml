@@ -1,0 +1,22 @@
+name: Python regression tests
+
+on:
+  push:
+    branches: ["main", "fix/reproducibility-event-evaluation"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  event-evaluation-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test dependencies
+        run: python -m pip install --upgrade pip pytest numpy pandas
+      - name: Run event-evaluation regression tests
+        run: python -m pytest -q tests/test_event_lead_time.py
