@@ -74,7 +74,7 @@ Run commands from the repository root.
    python -m pytest .\tests
    ```
 
-   Check each script's output and expected input files before running the next one. The event-level evaluator currently reports a fixed zero-margin threshold as a transparent baseline; use the validation-calibrated evaluation for primary threshold-based results. Do not select thresholds from the test set.
+   Check each script's output and expected input files before running the next one. The event-level evaluator reads the per-model, per-horizon thresholds produced by validation calibration. If that file is missing, it prints a warning and falls back to the zero-margin physics boundary. Do not select thresholds from the test set.
 
 ## Data and label details
 
