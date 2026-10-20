@@ -202,6 +202,10 @@ def main():
         "GRU":
             prediction_dir
             / "gru_test_predictions.npy",
+
+        "Hybrid":
+            prediction_dir
+            / "hybrid_test_predictions.npy",
     }
 
     all_results = []
