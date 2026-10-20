@@ -1357,6 +1357,7 @@ def main():
         "XGBoost",
         "LSTM",
         "GRU",
+        "Hybrid",
     ]:
 
         print(
