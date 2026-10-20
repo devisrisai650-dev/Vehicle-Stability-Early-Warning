@@ -150,20 +150,30 @@ def bootstrap_event_metrics():
             samples = []
             for b in range(N_BOOTSTRAP):
                 drawn = rng.choice(test_runs, size=len(test_runs), replace=True)
-                timeline_parts, event_parts = [], []
+                timeline_parts, event_parts, prediction_parts = [], [], []
                 next_boot_id = 0
+                next_sample_index = 0
                 for source_run in drawn:
                     new_id = next_boot_id
                     next_boot_id += 1
                     idx = run_indices[int(source_run)]
-                    part = base_timeline.loc[idx, ["sample_index", "Time"]].copy()
+                    # Each sampled run copy needs its own contiguous index range.
+                    # Reusing original sample_index values makes the warning
+                    # evaluator index the wrong predictions (or duplicate them).
+                    part = base_timeline.loc[idx, ["Time"]].copy()
+                    part["sample_index"] = np.arange(
+                        next_sample_index, next_sample_index + len(idx), dtype=int
+                    )
+                    next_sample_index += len(idx)
                     part["Run_ID"] = new_id
                     timeline_parts.append(part)
+                    prediction_parts.append(predictions[idx, col])
                     epart = event_by_run[int(source_run)].copy()
                     if not epart.empty:
                         epart["Run_ID"] = new_id
                         event_parts.append(epart)
                 timeline = pd.concat(timeline_parts, ignore_index=True)
+                boot_predictions = np.concatenate(prediction_parts)
                 boot_events = (
                     pd.concat(event_parts, ignore_index=True)
                     if event_parts else pd.DataFrame(columns=events.columns)
@@ -172,7 +182,7 @@ def bootstrap_event_metrics():
                     samples.append((np.nan, np.nan, np.nan))
                     continue
                 warning = ev.find_warning_episodes(
-                    timeline, predictions[:, col], threshold
+                    timeline, boot_predictions, threshold
                 )
                 matched, false = ev.match_warnings_to_events(boot_events, warning)
                 detection = float(matched["early_warning_detected"].mean())
