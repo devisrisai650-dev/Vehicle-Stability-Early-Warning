@@ -112,17 +112,7 @@ def add_sensor_noise(gt, rng):
             + rng.normal(0, np.radians(0.2), n)
         )
 
-    out = pd.DataFrame({
-        'Run_ID': gt['Run_ID'].values,
-        'Time': gt['Time'].values,
-        'yaw_rate_meas': yaw_rate_meas,
-        'lateral_accel_meas': lat_accel_meas,
-        'speed_meas': speed_meas,
-        'steering_angle_meas': steer_meas,
-        'maneuver': gt['maneuver'].values,
-        'mu_surface': gt['mu_surface'].values,
-    })
-    return out
+    return measured
 
 
 def main():
