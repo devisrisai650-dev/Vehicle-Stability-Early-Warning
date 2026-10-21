@@ -75,6 +75,61 @@ def load_persistence_predictions(run_ids, times, y):
     return np.repeat(values[:, None], y.shape[1], axis=1)
 
 
+def load_physics_observer_predictions(run_ids, times, y):
+    """Compute sensor-only current-margin persistence for each held-out sequence."""
+    sensor_path = RAW / "retrofit_sensor_stream.csv"
+    if not sensor_path.exists():
+        print("NOTE: sensor stream missing; physics-observer baseline omitted.")
+        return None
+    simulator_dir = ROOT / "simulator"
+    sys.path.insert(0, str(simulator_dir))
+    from vehicle_model import ALPHA_R_PEAK  # noqa: E402
+
+    sensor = pd.read_csv(sensor_path)
+    required = {
+        "Run_ID", "Time", "yaw_rate_meas", "lateral_accel_meas", "speed_meas"
+    }
+    missing = required.difference(sensor.columns)
+    if missing:
+        raise ValueError(
+            f"Sensor stream missing columns: {sorted(missing)}"
+        )
+    rows = []
+    for run_id, frame in sensor.groupby("Run_ID", sort=True):
+        frame = frame.sort_values("Time").reset_index(drop=True)
+        t = frame["Time"].to_numpy(dtype=float)
+        r = frame["yaw_rate_meas"].to_numpy(dtype=float)
+        ay = frame["lateral_accel_meas"].to_numpy(dtype=float)
+        vx = np.maximum(frame["speed_meas"].to_numpy(dtype=float), 1.0)
+        vy_dot = ay - vx * r
+        vy = np.zeros(len(frame), dtype=float)
+        for i in range(1, len(frame)):
+            dt = t[i] - t[i - 1]
+            if dt <= 0 or dt > 0.5:
+                vy[i] = 0.0
+            else:
+                vy[i] = vy[i - 1] + 0.5 * (vy_dot[i - 1] + vy_dot[i]) * dt
+        alpha_r = np.arctan2(vy - 1.6 * r, vx)
+        margin = (ALPHA_R_PEAK - np.abs(alpha_r)) / ALPHA_R_PEAK
+        rows.append(pd.DataFrame({
+            "Run_ID": int(run_id), "Time": t, "physics_margin": margin
+        }))
+    estimates = pd.concat(rows, ignore_index=True)
+    keys = pd.DataFrame({
+        "Run_ID": np.asarray(run_ids, dtype=int),
+        "Time": np.asarray(times, dtype=float),
+        "row": np.arange(len(run_ids), dtype=int),
+    })
+    aligned = keys.merge(
+        estimates, on=["Run_ID", "Time"], how="left", validate="one_to_one"
+    ).sort_values("row")
+    margin = aligned["physics_margin"].to_numpy(dtype=float)
+    if len(margin) != len(y) or not np.isfinite(margin).all():
+        raise ValueError("Physics-observer margin did not align to all test sequences.")
+    # Current sensor-estimated margin held constant for each forecast horizon.
+    return np.repeat(margin[:, None], y.shape[1], axis=1)
+
+
 def metric_rows_by_surface():
     seq = np.load(PROCESSED / "test_sequences.npz", allow_pickle=True)
     X, y = seq["X"], seq["y"].astype(float)
@@ -103,6 +158,10 @@ def metric_rows_by_surface():
         if pred.shape != y.shape:
             raise ValueError(f"{name} predictions shape {pred.shape} != targets {y.shape}")
         predictions[name] = pred
+
+    physics_pred = load_physics_observer_predictions(run_ids, times, y)
+    if physics_pred is not None:
+        predictions["Physics observer"] = physics_pred
 
     rows = []
     for surface, surface_frame in frame.groupby("mu_surface", sort=True):
