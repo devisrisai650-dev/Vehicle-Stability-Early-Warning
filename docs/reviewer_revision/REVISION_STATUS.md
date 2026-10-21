@@ -17,7 +17,7 @@ This document tracks the revision against the actual repository implementation a
 - Run-level split: 201 train, 43 validation, 44 test runs; test sequence count reported as 4,584.
 - Validation-only threshold calibration exists; event warning policy uses two consecutive warning samples, a 0.20 s episode gap, and a maximum 5 s pre-event association window.
 - Current event evaluator reports 39 ground-truth events and 12 model/horizon combinations.
-- The four event-lead-time unit tests passed in the user's latest local run.
+- The final local revision suite completed all stages, including the event-level evaluation, validation-calibrated event-warning ablation, and repository tests (4 passed).
 - A local surface-stratified run completed for XGBoost, LSTM, GRU, and Hybrid: dry 10 runs/1,010 sequences; ice/snow 16 runs/1,696 sequences; wet 18 runs/1,878 sequences. Its 36 metric rows are preserved in `surface_stratified_metrics_2026-10-21.csv`; they are provisional until the updated script reruns with persistence and sensor-only physics baselines included.
 - The reviewer analysis script now builds persistence from the current simulated ground-truth margin and computes a sensor-only physics-observer baseline. Persistence is a reference baseline using simulator state, not an operational sensor-only method.
 - The author successfully ran the optimized run-cluster bootstrap for 2,000 resamples per model/horizon. Output is committed as `results/tables/reviewer_revision/run_cluster_bootstrap_intervals.csv`.
@@ -57,7 +57,7 @@ The current event-level output is available locally in `results/tables/event_lea
 3. The 2,000-resample run-level bootstrap completed and its confidence-interval CSV is committed. Interpret intervals as fixed-model test-run sampling uncertainty only.
 4. Repeat training with several random seeds and report variability. Do not treat bootstrap resampling as a substitute for retraining across seeds.
 5. Evaluate a physics-rule baseline only if the required beta/yaw-rate signals and boundary are available. An LTR baseline is not supported by the current 2-DOF lateral model unless roll/load-transfer data or a defensible simulated extension is added.
-6. Regression ablation is complete for five seeds (XGBoost and Hybrid only). A matched event-warning ablation script has now been added at `evaluation/event_warning_ablation.py`. It calibrates thresholds separately for physics-only, sensor-only XGBoost, and Hybrid on validation runs under a predeclared cap of 0.5 unassociated warning episodes/run, then evaluates frozen thresholds on test runs. The script has not yet been executed locally; inspect its threshold-feasibility flags and output CSVs before citing results.
+6. Regression ablation is complete for five seeds (XGBoost and Hybrid only). The matched event-warning ablation was also run locally for physics-only, sensor-only XGBoost, and Hybrid. Thresholds were calibrated on validation runs under a cap of 0.5 unassociated warning episodes/run, then frozen for test evaluation; all nine settings met the validation cap. The test results are in `results/tables/reviewer_revision/event_warning_ablation_test_results.csv` locally; archive the generated CSVs with the experiment artifacts.
 7. Measure inference latency and memory on specified low-cost hardware. No such measurement is currently verified.
 8. Add sensor-noise robustness results and include Hybrid consistently if its model artifacts and inference path are available.
 9. Update the paper tables, figures, abstract and conclusion only after those result files have been regenerated and checked.
@@ -70,14 +70,14 @@ Not supported: “validated road-safety system,” “deploy-ready,” “suffic
 
 ## Execution checklist
 
-- [ ] Reconcile old and current event definitions/results; do not retain the older ~97% claim unless its event definition and denominator can be reproduced and compared.
-- [ ] Regenerate a single-source forecasting comparison for all models/horizons.
-- [ ] Run surface-stratified evaluation.
-- [ ] Run run-level bootstrap intervals.
+- [x] The revised draft removes the unreconciled older ~97% claim and reports the current 39-event protocol. [ ] Archive/reproduce the older evaluator only if a direct historical comparison is required.
+- [x] Regenerated single-source forecasting comparison for all six methods/horizons.
+- [x] Ran surface-stratified evaluation.
+- [x] Ran 2,000-replicate run-level bootstrap intervals.
 - [x] Run five-seed XGBoost/Hybrid regression experiment locally and record summary; raw per-seed CSV remains in the author's local `results/tables/reviewer_revision/repeated_seed_ablation_raw.csv` and should be archived with the experiment artifacts.
 - [x] Document why a rollover/LTR physics-rule baseline is not supported by the current 2-DOF lateral/yaw model: roll dynamics, vertical load transfer, and validated load-transfer signals are absent. A rear-slip-margin comparator is not an LTR baseline.
-- [x] Review the five-seed regression ablation summary. [x] Add the matched event-warning ablation script with validation-only threshold calibration. [ ] Run it locally and review feasibility flags and test CSV.
+- [x] Ran and recorded five-seed regression ablation for XGBoost/Hybrid. [x] Ran matched validation-calibrated event-warning ablation and confirmed all nine settings met the validation burden cap.
 - [ ] Benchmark inference latency/memory on a named target device; do not report hardware performance without measuring it.
-- [ ] Update manuscript abstract/results/tables and reviewer responses from the final regenerated, checked CSVs; current drafts are not submission-ready.
-- [ ] Run `python .\\evaluation\\run_final_revision_suite.py` locally; resolve any failed stage and archive raw per-seed plus reviewer-revision CSV outputs. The suite was added to orchestrate existing analyses but has not been executed against the author's local artifacts.
-- [ ] Finalize point-by-point response with page/section locations.
+- [x] Updated manuscript and reviewer-response drafts with the supplied final-suite results. [ ] Final proofread and reconcile references/tables after the remaining evidence gaps are resolved.
+- [x] Ran `python .\\evaluation\\run_final_revision_suite.py` locally; all analysis stages completed and pytest reported 4 passed. [ ] Archive raw per-seed and reviewer-revision CSV outputs alongside the manuscript.
+- [ ] Finalize point-by-point response with page/section/table locations after typesetting.
