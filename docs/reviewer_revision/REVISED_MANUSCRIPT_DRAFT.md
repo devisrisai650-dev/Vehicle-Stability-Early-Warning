@@ -2,7 +2,7 @@
 
 ## Revised manuscript working draft
 
-**Status:** This is a text-first revision draft. It is not yet a submission-ready replacement PDF: numerical regression tables, surface-stratified results, uncertainty intervals, physics-rule baseline, ablations, and hardware latency measurements remain to be generated and verified.
+**Status:** This is a text-first revision draft, not a submission-ready replacement PDF. A provisional surface-stratified CSV has been recorded from the author's local run for XGBoost/LSTM/GRU/Hybrid. The updated comparison now includes persistence and a sensor-only physics observer, but those new outputs and the optimized bootstrap still require a successful local run. Repeated-seed training, ablations, and target-hardware latency remain unexecuted.
 
 ## Abstract
 
@@ -48,9 +48,9 @@ The sensor noise is illustrative and has not been calibrated against a particula
 
 The forecast target is a dimensionless rear-axle tire-saturation-margin proxy. In the simulator, rear slip angle α_r is compared with the positive slip angle at which the chosen tire-force curve reaches its peak, α_{r,peak}. The margin is:
 
-[
-m(t)=rac{alpha_{r,mathrm{peak}}-|alpha_r(t)|}{alpha_{r,mathrm{peak}}}.
-]
+\[
+m(t)=\frac{\alpha_{r,\mathrm{peak}}-|\alpha_r(t)|}{\alpha_{r,\mathrm{peak}}}.
+\]
 
 A positive margin indicates that the simulated rear slip angle is below the chosen peak-slip reference; a negative margin indicates that it has passed that reference. This is a simulator-specific proxy, not a validated complete vehicle-stability envelope, rollover index, or probability of a crash. The continuous target is forecast at +0.5, +1.0, and +2.0 s.
 
@@ -74,7 +74,7 @@ Point-wise metrics count individual samples. Event-level detection asks whether 
 
 ## IV. Experimental Setup
 
-The dataset contains 47,520 synchronized simulated samples across 288 runs. The run-level split comprises 201 training runs, 43 validation runs, and 44 test runs. The held-out test set contains 4,584 temporal sequences. The simulation varies maneuver, nominal road-friction category (dry, wet, and ice/snow), target speed, and steering amplitude. Final results should include the exact number of held-out runs and events for each surface; those counts must be computed from the current metadata rather than inferred from the overall split.
+The dataset contains 47,520 synchronized simulated samples across 288 runs. The run-level split comprises 201 training runs, 43 validation runs, and 44 test runs. The held-out test set contains 4,584 temporal sequences. The simulation varies maneuver, nominal road-friction category (dry, wet, and ice/snow), target speed, and steering amplitude. In the author's local surface-stratified run, the test partition contained 10 dry runs (1,010 sequences), 16 ice/snow runs (1,696 sequences), and 18 wet runs (1,878 sequences). The 36 provisional XGBoost/LSTM/GRU/Hybrid metric rows are recorded in `surface_stratified_metrics_2026-10-21.csv`. These results should be regenerated with the updated script, which now also includes persistence and the sensor-only physics observer, before final submission.
 
 The test set is not a sample of independent real vehicles. It does not establish transfer across vehicle geometries, payloads, production tire characteristics, road conditions, or actual retrofit sensor hardware. The simulator does not model dynamic load transfer, combined longitudinal/lateral tire forces, or roll/suspension dynamics. For these reasons, an LTR threshold cannot be claimed as a validated baseline from the present lateral model alone.
 
@@ -111,7 +111,7 @@ No claim that learned models consistently outperform persistence is justified. W
 
 ### C. Statistical uncertainty and robustness
 
-The current event-level table is one evaluation snapshot from a fixed test split. It does not yet contain run-level bootstrap confidence intervals or multiple-seed retraining variability. The revised experiment should resample test runs as clusters to preserve within-run temporal dependence and should repeat training with several predeclared seeds. Surface-stratified and sensor-noise robustness results should be reported by model and horizon after the relevant scripts have been run and their output checked. Until then, no interval estimates or robust-superiority claims are made.
+The current event-level table is one evaluation snapshot from a fixed test split. The reviewer-revision script has been updated to estimate run-cluster bootstrap intervals by caching each run's event/warning assignments and resampling independent runs; this optimized implementation still requires a successful local execution and output review. It does not replace repeated-seed retraining, which has not been run. Surface-stratified results for four models are available provisionally, but must be regenerated after adding persistence and the sensor-only physics observer to the comparison. Until these outputs are verified, no confidence intervals or robust-superiority claims are made.
 
 ### D. Physics baselines, ablations and latency
 
