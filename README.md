@@ -128,3 +128,13 @@ Validation performed for this result snapshot: event counts were consistent at 3
 ## Generated outputs and version control
 
 Generated CSVs, prediction arrays, and trained models may be large. Commit them only when required for reproducibility and check that the artifacts correspond to the same data split and code revision. Never commit credentials or private data.
+
+## Reviewer revision experiments
+
+After the existing processed train/validation/test sequence archives and sensor stream are available, run the reproducible repeated-seed regression/ablation experiment:
+
+```powershell
+python .\\evaluation\\repeated_seed_ablation_experiments.py
+```
+
+It trains sensor-only XGBoost and physics-plus-XGBoost residual models with five predeclared seeds (11, 23, 37, 42, 58), and compares both against a sensor-derived physics-only current-margin persistence comparator. It writes per-seed metrics and mean/standard-deviation summaries to `results/tables/reviewer_revision/repeated_seed_ablation_raw.csv` and `repeated_seed_ablation_summary.csv`. The script must be executed locally and its output inspected before any numbers are cited. It does not retrain LSTM/GRU, run event-warning threshold ablations, or measure hardware latency.
