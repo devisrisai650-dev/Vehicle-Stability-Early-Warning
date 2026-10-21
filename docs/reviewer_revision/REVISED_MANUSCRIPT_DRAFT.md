@@ -48,9 +48,9 @@ The sensor noise is illustrative and has not been calibrated against a particula
 
 The forecast target is a dimensionless rear-axle tire-saturation-margin proxy. In the simulator, rear slip angle α_r is compared with the positive slip angle at which the chosen tire-force curve reaches its peak, α_{r,peak}. The margin is:
 
-[
-m(t)=rac{alpha_{r,mathrm{peak}}-|alpha_r(t)|}{alpha_{r,mathrm{peak}}}.
-]
+\[
+m(t)=\frac{\alpha_{r,\mathrm{peak}}-|\alpha_r(t)|}{\alpha_{r,\mathrm{peak}}}.
+\]
 
 A positive margin indicates that the simulated rear slip angle is below the chosen peak-slip reference; a negative margin indicates that it has passed that reference. This is a simulator-specific proxy, not a validated complete vehicle-stability envelope, rollover index, or probability of a crash. The continuous target is forecast at +0.5, +1.0, and +2.0 s.
 
