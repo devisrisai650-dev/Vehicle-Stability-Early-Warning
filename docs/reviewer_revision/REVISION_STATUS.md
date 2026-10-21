@@ -20,7 +20,8 @@ This document tracks the revision against the actual repository implementation a
 - The four event-lead-time unit tests passed in the user's latest local run.
 - A local surface-stratified run completed for XGBoost, LSTM, GRU, and Hybrid: dry 10 runs/1,010 sequences; ice/snow 16 runs/1,696 sequences; wet 18 runs/1,878 sequences. Its 36 metric rows are preserved in `surface_stratified_metrics_2026-10-21.csv`; they are provisional until the updated script reruns with persistence and sensor-only physics baselines included.
 - The reviewer analysis script now builds persistence from the current simulated ground-truth margin and computes a sensor-only physics-observer baseline. Persistence is a reference baseline using simulator state, not an operational sensor-only method.
-- The run-cluster bootstrap has been rewritten to precompute per-run event assignments and resample run-level summaries, avoiding repeated timeline construction for every bootstrap draw. This code has not yet been confirmed by a successful local run.
+- The author successfully ran the optimized run-cluster bootstrap for 2,000 resamples per model/horizon. Output is committed as `results/tables/reviewer_revision/run_cluster_bootstrap_intervals.csv`.
+- The author successfully ran the full surface-stratified comparison including persistence and sensor-only physics observer. Output is committed as `results/tables/reviewer_revision/surface_stratified_forecasting_metrics.csv`.
 - The Hybrid model is experimental: sensor-derived current-margin estimate plus XGBoost residual forecast. It is not a validated vehicle controller.
 - The repository documentation explicitly says the simulator's sensor-noise parameters are illustrative and not calibrated against a sensor datasheet.
 
@@ -51,9 +52,9 @@ The current event-level output is available locally in `results/tables/event_lea
 
 ## Experiments still required before claiming full reviewer closure
 
-1. Rerun the updated single-source comparison for persistence, the sensor-only physics observer, XGBoost, LSTM, GRU, and Hybrid from the same test target arrays and verify MAE, RMSE, and R². Explain different error-metric rankings only after verification.
-2. Surface-stratified metrics for the four learned models have been generated locally; rerun after the new baselines are included and verify the resulting CSV.
-3. Run the optimized run-level bootstrap and inspect the confidence-interval CSV. The code change is pushed, but successful output is not yet confirmed.
+1. The single-source comparison has now run for persistence, sensor-only physics observer, XGBoost, LSTM, GRU, and Hybrid. Results are committed; inspect target-scale consistency before final paper submission.
+2. Surface-stratified metrics are committed for all six methods and three horizons.
+3. The 2,000-resample run-level bootstrap completed and its confidence-interval CSV is committed. Interpret intervals as fixed-model test-run sampling uncertainty only.
 4. Repeat training with several random seeds and report variability. Do not treat bootstrap resampling as a substitute for retraining across seeds.
 5. Evaluate a physics-rule baseline only if the required beta/yaw-rate signals and boundary are available. An LTR baseline is not supported by the current 2-DOF lateral model unless roll/load-transfer data or a defensible simulated extension is added.
 6. Run ablations that isolate the physics margin and residual learner using the same split and thresholds calibrated on validation data.
