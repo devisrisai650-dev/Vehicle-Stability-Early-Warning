@@ -242,16 +242,26 @@ def bootstrap_event_metrics():
                     local_timeline, predictions[idx, col], threshold
                 )
                 run_events = event_by_run[run]
-                matched, false = ev.match_warnings_to_events(run_events, warning)
-                leads = matched.loc[
-                    matched["early_warning_detected"], "lead_time_s"
-                ].to_numpy(dtype=float)
-                run_summaries[run] = {
-                    "n_events": len(matched),
-                    "n_detected": int(matched["early_warning_detected"].sum()),
-                    "n_false": len(false),
-                    "leads": leads,
-                }
+                if run_events.empty:
+                    # No ground-truth events in this run: every warning is
+                    # unassociated, and there are no event-level leads.
+                    run_summaries[run] = {
+                        "n_events": 0,
+                        "n_detected": 0,
+                        "n_false": len(warning),
+                        "leads": np.asarray([], dtype=float),
+                    }
+                else:
+                    matched, false = ev.match_warnings_to_events(run_events, warning)
+                    leads = matched.loc[
+                        matched["early_warning_detected"], "lead_time_s"
+                    ].to_numpy(dtype=float)
+                    run_summaries[run] = {
+                        "n_events": len(matched),
+                        "n_detected": int(matched["early_warning_detected"].sum()),
+                        "n_false": len(false),
+                        "leads": leads,
+                    }
 
             samples = np.full((N_BOOTSTRAP, 3), np.nan, dtype=float)
             for b in range(N_BOOTSTRAP):
@@ -269,6 +279,17 @@ def bootstrap_event_metrics():
                 if lead_parts:
                     samples[b, 2] = float(np.median(np.concatenate(lead_parts)))
 
+            original_events = sum(v["n_events"] for v in run_summaries.values())
+            original_detected = sum(v["n_detected"] for v in run_summaries.values())
+            original_false = sum(v["n_false"] for v in run_summaries.values())
+            original_leads = [
+                v["leads"] for v in run_summaries.values() if len(v["leads"])
+            ]
+            point_estimates = [
+                original_detected / original_events if original_events else np.nan,
+                original_false / len(test_runs) if len(test_runs) else np.nan,
+                float(np.median(np.concatenate(original_leads))) if original_leads else np.nan,
+            ]
             for metric_idx, metric in enumerate([
                 "event_detection_rate",
                 "unassociated_episodes_per_test_run",
@@ -282,7 +303,7 @@ def bootstrap_event_metrics():
                     "metric": metric,
                     "bootstrap_replicates": N_BOOTSTRAP,
                     "seed": SEED,
-                    "estimate": float(np.median(values)) if len(values) else np.nan,
+                    "estimate": float(point_estimates[metric_idx]),
                     "ci95_lower": float(np.quantile(values, 0.025)) if len(values) else np.nan,
                     "ci95_upper": float(np.quantile(values, 0.975)) if len(values) else np.nan,
                     "valid_replicates": len(values),
