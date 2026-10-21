@@ -1,4 +1,4 @@
-"""Repeated-seed regression and physics/residual ablation experiments.
+r"""Repeated-seed regression and physics/residual ablation experiments.
 
 Run from the repository root:
     python .\evaluation\repeated_seed_ablation_experiments.py
