@@ -57,7 +57,7 @@ The current event-level output is available locally in `results/tables/event_lea
 3. The 2,000-resample run-level bootstrap completed and its confidence-interval CSV is committed. Interpret intervals as fixed-model test-run sampling uncertainty only.
 4. Repeat training with several random seeds and report variability. Do not treat bootstrap resampling as a substitute for retraining across seeds.
 5. Evaluate a physics-rule baseline only if the required beta/yaw-rate signals and boundary are available. An LTR baseline is not supported by the current 2-DOF lateral model unless roll/load-transfer data or a defensible simulated extension is added.
-6. Run ablations that isolate the physics margin and residual learner using the same split and thresholds calibrated on validation data.
+6. A first regression ablation script now compares physics-only, sensor-only XGBoost, and physics-plus-residual Hybrid using the same run split and test target arrays. Event-warning ablations with validation-calibrated thresholds remain to be implemented and run.
 7. Measure inference latency and memory on specified low-cost hardware. No such measurement is currently verified.
 8. Add sensor-noise robustness results and include Hybrid consistently if its model artifacts and inference path are available.
 9. Update the paper tables, figures, abstract and conclusion only after those result files have been regenerated and checked.
@@ -74,9 +74,9 @@ Not supported: “validated road-safety system,” “deploy-ready,” “suffic
 - [ ] Regenerate a single-source forecasting comparison for all models/horizons.
 - [ ] Run surface-stratified evaluation.
 - [ ] Run run-level bootstrap intervals.
-- [ ] Run multiple training seeds.
+- [ ] Run `python .\\evaluation\\repeated_seed_ablation_experiments.py`; inspect raw and summary CSVs before reporting. (Script added; execution not yet verified.)
 - [ ] Run physics-rule baseline or document why the available data/model do not support it.
-- [ ] Run ablation study.
+- [ ] Review regression ablation results; add/run matched event-warning ablations.
 - [ ] Benchmark hardware latency/memory.
 - [ ] Update manuscript from verified output tables.
 - [ ] Run full tests and confirm reproducibility.
