@@ -2,7 +2,7 @@
 
 ## Revised manuscript working draft
 
-**Status:** This is a text-first revision draft, not a submission-ready replacement PDF. A provisional surface-stratified CSV has been recorded from the author's local run for XGBoost/LSTM/GRU/Hybrid. The updated comparison now includes persistence and a sensor-only physics observer, but those new outputs and the optimized bootstrap still require a successful local run. Repeated-seed training, ablations, and target-hardware latency remain unexecuted.
+**Status:** This is a text-first revision draft, not a submission-ready replacement PDF. The author has now run the updated comparison and 2,000-replicate run-cluster bootstrap successfully; their reported outputs are committed under `results/tables/reviewer_revision/`. Repeated-seed training, controlled ablations, surface-specific event/class counts, and target-hardware latency remain outstanding.
 
 ## Abstract
 
@@ -105,13 +105,11 @@ The earlier manuscript reported approximately 97% event detection using an older
 
 ### B. Forecasting metrics and persistence
 
-The older forecasting comparison table is dated 22 September 2026, whereas the current event-level output was regenerated on 20 October 2026. The old regression table must be treated as provisional until MAE, RMSE, and R² are recomputed for persistence, XGBoost, LSTM, GRU, and Hybrid from the same held-out target array and horizon indices. MAE and RMSE can rank models differently because RMSE penalizes large residuals more strongly; this explains how rankings can differ in principle, but the calculation itself must still be checked.
-
-No claim that learned models consistently outperform persistence is justified. Where persistence has lower RMSE or R² is better for persistence, the paper should report that directly and discuss the limited incremental value at that horizon.
+The updated local evaluation computes MAE, RMSE, and R² for persistence, XGBoost, LSTM, GRU, Hybrid, and a sensor-only physics observer on the same held-out target array, and saves the 54 surface/model/horizon rows in `results/tables/reviewer_revision/surface_stratified_forecasting_metrics.csv`. Across the surface-stratified output, the Hybrid model has the lowest MAE on ice/snow and wet surfaces at all three horizons, and on dry at 0.5 s and 1.0 s; at dry 2.0 s, LSTM has slightly lower MAE than Hybrid (0.5616 vs. 0.5631). The persistence reference has lower MAE than the learned models on dry at 0.5 s (0.2989), but its MAE rises with horizon and is worse than the best learned model on ice/snow and wet conditions. This persistence reference uses the simulator's current ground-truth margin, so it is not a sensor-available deployment baseline. The physics observer is sensor-only but approximate; its error is similar to persistence and grows substantially at longer horizons. The complete table should be used rather than presenting a universal model winner.
 
 ### C. Statistical uncertainty and robustness
 
-The current event-level table is one evaluation snapshot from a fixed test split. The reviewer-revision script has been updated to estimate run-cluster bootstrap intervals by caching each run's event/warning assignments and resampling independent runs; this optimized implementation still requires a successful local execution and output review. It does not replace repeated-seed retraining, which has not been run. Surface-stratified results for four models are available provisionally, but must be regenerated after adding persistence and the sensor-only physics observer to the comparison. Until these outputs are verified, no confidence intervals or robust-superiority claims are made.
+The event-level estimates now have run-cluster bootstrap intervals based on 2,000 resamples of the 44 held-out test runs. The output is saved in `results/tables/reviewer_revision/run_cluster_bootstrap_intervals.csv`. Hybrid at 2.0 s has an early-detection estimate of 0.7436 (95% bootstrap interval 0.5952–0.8781), 0.3864 unassociated warning episodes per test run (interval 0.2040–0.5909), and median lead time 0.90 s (interval 0.50–1.50 s). LSTM at 1.0 s has an early-detection estimate of 0.6410 (interval 0.4889–0.7956) and the lowest unassociated-episode estimate among these configurations, 0.1364 per test run (interval 0.0455–0.2500). Intervals overlap across several model/horizon pairs, so the results do not establish a clear statistical winner. These intervals represent test-run resampling for fixed trained models and thresholds only; they do not quantify retraining-seed variability or real-vehicle generalization. Repeated-seed training remains unrun.
 
 ### D. Physics baselines, ablations and latency
 
