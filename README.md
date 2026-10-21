@@ -148,3 +148,14 @@ python .\\evaluation\\event_warning_ablation.py
 ```
 
 The script compares sensor-only XGBoost, a sensor-derived physics-only observer, and physics-plus-residual Hybrid. It selects each method/horizon threshold on validation runs only, maximizing early-event detection subject to at most 0.5 unassociated warning episodes per validation run; ties are resolved by fewer unassociated episodes and then a higher threshold. It freezes those thresholds before test evaluation and writes validation threshold/grid and test results to `results/tables/reviewer_revision/event_warning_ablation_*.csv`. The script has been added but not yet executed locally; do not cite numeric results until outputs have been reviewed. If no threshold satisfies the warning-burden cap, the output explicitly marks the constraint infeasible and chooses the lowest-burden threshold.
+
+
+### One-command final revision suite
+
+Once the repository's processed data and prediction artifacts exist, run all available local analyses in order:
+
+\`\`\`powershell
+python .\\evaluation\\run_final_revision_suite.py
+\`\`\`
+
+The runner checks required files first, then runs the five-seed XGBoost/Hybrid regression ablation, surface-stratified metrics plus run-cluster bootstrap, current event-level metrics, the validation-calibrated event-warning ablation, and the test suite. It stops at the first failed stage and reports which stage failed. It does not generate missing predictions, retrain LSTM/GRU across seeds, or fabricate hardware measurements. Preserve the generated raw per-seed CSV and all reviewer-revision output CSVs with the final experiment archive.
