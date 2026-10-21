@@ -4,7 +4,9 @@ Run from repository root:
     python .\\evaluation\\reviewer_revision_experiments.py
 
 Uses existing test sequences/predictions and run metadata. Does not retrain models
-or regenerate the dataset. Bootstrap intervals quantify test-run resampling only;
+or regenerate the dataset. Persistence uses the simulator's current ground-truth
+margin and is a reference forecast, not a sensor-available baseline. Bootstrap
+intervals quantify test-run resampling only;
 they are not a substitute for repeated-seed training. Outputs are written under
 results/tables/reviewer_revision/.
 """
@@ -35,30 +37,49 @@ N_BOOTSTRAP = 2000
 SEED = 20261020
 
 
-def load_persistence(y):
-    """Persistence forecast: use the latest observed target proxy.
+def load_persistence_predictions(run_ids, times, y):
+    """Build a genuine persistence forecast from current ground-truth margin.
 
-    This baseline is valid only if a matching observed current-margin series
-    exists. We do not silently substitute the first future target. If no
-    observed current-margin array is available, the script reports it missing.
+    This is a simulated-data baseline, not an operational sensor-only baseline:
+    current margin is taken from the simulator ground-truth file. It is included
+    to compare forecast persistence consistently on the same held-out targets.
     """
-    candidates = [
-        PROCESSED / "persistence_test_predictions.npy",
-        PRED_DIR / "persistence_test_predictions.npy",
-    ]
-    for path in candidates:
-        if path.exists():
-            pred = np.load(path)
-            if pred.shape == y.shape:
-                return pred
-            raise ValueError(f"Persistence predictions shape {pred.shape} != y shape {y.shape}")
-    return None
+    gt_path = RAW / "ground_truth_dynamics.csv"
+    if not gt_path.exists():
+        raise FileNotFoundError(
+            f"Cannot build persistence baseline without {gt_path}"
+        )
+    gt = pd.read_csv(gt_path)
+    required = {"Run_ID", "Time", "stability_margin"}
+    missing = required.difference(gt.columns)
+    if missing:
+        raise ValueError(
+            f"Ground-truth file missing columns: {sorted(missing)}"
+        )
+    keys = pd.DataFrame({
+        "Run_ID": np.asarray(run_ids, dtype=int),
+        "Time": np.asarray(times, dtype=float),
+        "row": np.arange(len(run_ids), dtype=int),
+    })
+    current = keys.merge(
+        gt[["Run_ID", "Time", "stability_margin"]],
+        on=["Run_ID", "Time"], how="left", validate="one_to_one",
+    ).sort_values("row")
+    values = current["stability_margin"].to_numpy(dtype=float)
+    if len(values) != len(y) or not np.isfinite(values).all():
+        missing_count = int(np.isnan(values).sum())
+        raise ValueError(
+            "Persistence current-margin alignment failed: "
+            f"{missing_count} missing values for {len(y)} test sequences."
+        )
+    return np.repeat(values[:, None], y.shape[1], axis=1)
 
 
 def metric_rows_by_surface():
     seq = np.load(PROCESSED / "test_sequences.npz", allow_pickle=True)
     X, y = seq["X"], seq["y"].astype(float)
     run_ids = np.asarray(seq["Run_ID"]).astype(int)
+    times = np.asarray(seq["Time"], dtype=float)
     metadata_path = RAW / "run_metadata.csv"
     if not metadata_path.exists():
         raise FileNotFoundError(metadata_path)
@@ -73,10 +94,7 @@ def metric_rows_by_surface():
     predictions = {}
     for name, path in FORECAST_MODELS.items():
         if name == "Persistence":
-            pred = load_persistence(y)
-            if pred is None:
-                print("NOTE: persistence_test_predictions.npy not found; persistence surface metrics omitted.")
-                continue
+            pred = load_persistence_predictions(run_ids, times, y)
         else:
             if not path.exists():
                 print(f"NOTE: {name} predictions missing ({path}); skipping this model.")
@@ -107,11 +125,12 @@ def metric_rows_by_surface():
 
 
 def bootstrap_event_metrics():
-    """Cluster bootstrap independent test runs, preserving each run's sequence.
+    """Fast run-cluster bootstrap using independent per-run event assignments.
 
-    Each sampled run copy gets a synthetic ID so duplicate bootstrap draws are
-    treated as distinct clusters. Thresholds remain the frozen validation
-    thresholds; no threshold is selected from the test data.
+    Warning-event matching is performed once per original run because matching
+    is strictly run-local. Bootstrap draws then resample those run-level results.
+    This preserves the cluster as the unit of resampling and avoids repeatedly
+    rebuilding pandas timelines thousands of times.
     """
     rng = np.random.default_rng(SEED)
     thresholds = ev.load_calibrated_thresholds()
@@ -124,7 +143,6 @@ def bootstrap_event_metrics():
     if events.empty:
         raise RuntimeError("No test events available for bootstrap.")
 
-    # Cache per-model prediction arrays and per-run event/warning ingredients.
     prediction_arrays = {}
     for model, path in ev.MODELS.items():
         if not path.exists():
@@ -132,17 +150,13 @@ def bootstrap_event_metrics():
             continue
         arr = np.load(path)
         if arr.shape != y.shape:
-            raise ValueError(f"{model} prediction shape {arr.shape} != target shape {y.shape}")
+            raise ValueError(
+                f"{model} prediction shape {arr.shape} != target shape {y.shape}"
+            )
         prediction_arrays[model] = arr
 
-    # Cache positional indices and timestamps once. Using .iloc avoids repeated
-    # label-index reindexing inside thousands of bootstrap draws.
     run_indices = {
         int(run): np.flatnonzero(np.asarray(run_ids, dtype=int) == int(run))
-        for run in test_runs
-    }
-    run_times = {
-        int(run): np.asarray(times, dtype=float)[run_indices[int(run)]]
         for run in test_runs
     }
     event_by_run = {
@@ -153,67 +167,68 @@ def bootstrap_event_metrics():
     for model, predictions in prediction_arrays.items():
         for horizon, col in ev.HORIZONS.items():
             threshold = thresholds.get(model, {}).get(horizon, ev.THRESHOLD)
-            samples = []
+            # Cache independent run-level summaries. No event or warning can
+            # match across run boundaries, so this is equivalent to resampling
+            # complete runs and avoids repeating expensive matching work.
+            run_summaries = {}
+            for run in test_runs:
+                run = int(run)
+                idx = run_indices[run]
+                local_timeline = pd.DataFrame({
+                    "sample_index": np.arange(len(idx), dtype=int),
+                    "Run_ID": np.full(len(idx), run, dtype=int),
+                    "Time": np.asarray(times, dtype=float)[idx],
+                })
+                warning = ev.find_warning_episodes(
+                    local_timeline, predictions[idx, col], threshold
+                )
+                run_events = event_by_run[run]
+                matched, false = ev.match_warnings_to_events(run_events, warning)
+                leads = matched.loc[
+                    matched["early_warning_detected"], "lead_time_s"
+                ].to_numpy(dtype=float)
+                run_summaries[run] = {
+                    "n_events": len(matched),
+                    "n_detected": int(matched["early_warning_detected"].sum()),
+                    "n_false": len(false),
+                    "leads": leads,
+                }
+
+            samples = np.full((N_BOOTSTRAP, 3), np.nan, dtype=float)
             for b in range(N_BOOTSTRAP):
                 drawn = rng.choice(test_runs, size=len(test_runs), replace=True)
-                timeline_parts, event_parts, prediction_parts = [], [], []
-                next_boot_id = 0
-                next_sample_index = 0
-                for source_run in drawn:
-                    new_id = next_boot_id
-                    next_boot_id += 1
-                    idx = run_indices[int(source_run)]
-                    # Each sampled run copy needs its own contiguous index range.
-                    # Reusing original sample_index values makes the warning
-                    # evaluator index the wrong predictions (or duplicate them).
-                    run_time_values = run_times[int(source_run)]
-                    part = pd.DataFrame({
-                        "Time": run_time_values,
-                        "sample_index": np.arange(
-                            next_sample_index, next_sample_index + len(idx), dtype=int
-                        ),
-                        "Run_ID": new_id,
-                    })
-                    next_sample_index += len(idx)
-                    timeline_parts.append(part)
-                    prediction_parts.append(predictions[idx, col])
-                    epart = event_by_run[int(source_run)].copy()
-                    if not epart.empty:
-                        epart["Run_ID"] = new_id
-                        event_parts.append(epart)
-                timeline = pd.concat(timeline_parts, ignore_index=True)
-                boot_predictions = np.concatenate(prediction_parts)
-                boot_events = (
-                    pd.concat(event_parts, ignore_index=True)
-                    if event_parts else pd.DataFrame(columns=events.columns)
-                )
-                if boot_events.empty:
-                    samples.append((np.nan, np.nan, np.nan))
-                    continue
-                warning = ev.find_warning_episodes(
-                    timeline, boot_predictions, threshold
-                )
-                matched, false = ev.match_warnings_to_events(boot_events, warning)
-                detection = float(matched["early_warning_detected"].mean())
-                false_per_run = float(len(false) / len(drawn))
-                leads = matched.loc[matched["early_warning_detected"], "lead_time_s"]
-                median_lead = float(leads.median()) if len(leads) else np.nan
-                samples.append((detection, false_per_run, median_lead))
-            arr = np.asarray(samples, dtype=float)
+                total_events = sum(run_summaries[int(r)]["n_events"] for r in drawn)
+                total_detected = sum(run_summaries[int(r)]["n_detected"] for r in drawn)
+                total_false = sum(run_summaries[int(r)]["n_false"] for r in drawn)
+                if total_events:
+                    samples[b, 0] = total_detected / total_events
+                samples[b, 1] = total_false / len(drawn)
+                lead_parts = [
+                    run_summaries[int(r)]["leads"]
+                    for r in drawn if len(run_summaries[int(r)]["leads"])
+                ]
+                if lead_parts:
+                    samples[b, 2] = float(np.median(np.concatenate(lead_parts)))
+
             for metric_idx, metric in enumerate([
-                "event_detection_rate", "unassociated_episodes_per_test_run", "median_lead_time_s"
+                "event_detection_rate",
+                "unassociated_episodes_per_test_run",
+                "median_lead_time_s",
             ]):
-                values = arr[:, metric_idx]
+                values = samples[:, metric_idx]
                 values = values[np.isfinite(values)]
                 out_rows.append({
-                    "model": model, "horizon": horizon, "metric": metric,
+                    "model": model,
+                    "horizon": horizon,
+                    "metric": metric,
                     "bootstrap_replicates": N_BOOTSTRAP,
                     "seed": SEED,
-                    "estimate": float(np.nanmedian(values)) if len(values) else np.nan,
+                    "estimate": float(np.median(values)) if len(values) else np.nan,
                     "ci95_lower": float(np.quantile(values, 0.025)) if len(values) else np.nan,
                     "ci95_upper": float(np.quantile(values, 0.975)) if len(values) else np.nan,
                     "valid_replicates": len(values),
                 })
+            print(f"Bootstrap complete: {model} / {horizon} ({N_BOOTSTRAP} resamples)")
     result = pd.DataFrame(out_rows)
     result.to_csv(OUT / "run_cluster_bootstrap_intervals.csv", index=False)
     return result
