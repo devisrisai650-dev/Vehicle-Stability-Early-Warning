@@ -2,11 +2,11 @@
 
 ## Revised manuscript working draft
 
-**Status:** This is a text-first revision draft, not a submission-ready replacement PDF. The author has run the six-method surface-stratified comparison, 2,000-replicate run-cluster bootstrap, and a five-seed regression ablation for sensor-only XGBoost and the physics-plus-residual Hybrid. The five-seed metrics are reported in the Results section and must be retained with the corresponding generated CSVs. LSTM/GRU multi-seed training, event-level ablations, surface-specific event/class counts, and target-hardware latency remain outstanding.
+**Status:** This is a revised text-first working draft, not a submission-ready replacement PDF. The author’s local final-suite run completed the five-seed XGBoost/Hybrid regression ablation, six-method surface-stratified metrics, 2,000-replicate run-cluster bootstrap, current 39-event evaluation, validation-calibrated event-warning ablation, and four automated tests (4 passed). Numerical results below are based on the supplied console output. LSTM/GRU multi-seed training, surface-specific event/class counts, exact sensor noise/quantization documentation, and target-hardware latency/memory remain outstanding. The older approximately 97% event-detection claim is not used.
 
 ## Abstract
 
-Vehicle lateral instability can develop rapidly, while a warning issued only after an instability indicator crosses its limit may provide little time for a driver to respond. This paper studies a simulation-based, warning-only framework for forecasting a rear-axle tire-saturation-margin proxy from four low-cost retrofit sensor channels. The framework uses a nonlinear two-degree-of-freedom bicycle-model simulator with representative tire-force curves, 20 Hz sensor-stream output, one-second input histories, and forecast horizons of 0.5, 1.0, and 2.0 s. The inputs are measured yaw rate, lateral acceleration, longitudinal speed, and steering angle. XGBoost, LSTM, and GRU forecasters are compared with persistence; an experimental physics-plus-XGBoost residual model is also evaluated. Complete runs are separated into 201 training, 43 validation, and 44 test runs, and warning thresholds are selected using validation data. In the latest event-level evaluation, 39 simulated instability events were extracted. Across the tested model/horizon combinations, 24–29 events were detected before onset (61.5%–74.4%), median lead time among early detections was 0.50–0.90 s, and 6–20 warning episodes were not associated with an event. The Hybrid model at 2.0 s had the highest early-detection count in this snapshot (29/39), but it also produced 17 unassociated warning episodes; therefore, no model is best on every safety-related metric. These results are limited to the current simulator and operating conditions. The sensor noise is illustrative, and no real-vehicle, hardware-in-the-loop, or driver-response validation has been performed.
+Vehicle lateral instability can develop rapidly, while a warning issued only after an instability indicator crosses its limit may provide little time for a driver to respond. This paper studies a simulation-based, warning-only framework for forecasting a rear-axle tire-saturation-margin proxy from four low-cost retrofit sensor channels. The framework uses a nonlinear two-degree-of-freedom bicycle-model simulator with representative tire-force curves, 20 Hz sensor-stream output, one-second input histories, and forecast horizons of 0.5, 1.0, and 2.0 s. The inputs are simulated noisy/quantized measurements of yaw rate, lateral acceleration, longitudinal speed, and steering angle. XGBoost, LSTM, and GRU forecasters are compared with persistence; an experimental physics-plus-XGBoost residual model is also evaluated. Complete runs are separated into 201 training, 43 validation, and 44 test runs, and warning thresholds are selected using validation data. In the latest event-level evaluation, 39 simulated instability events were extracted. Across the tested model/horizon combinations, 24–29 events were detected before onset (61.5%–74.4%), median lead time among early detections was 0.50–0.90 s, and 6–20 warning episodes were not associated with an event. The Hybrid model at 2.0 s had the highest early-detection count in this snapshot (29/39), but it also produced 17 unassociated warning episodes; therefore, no model is best on every safety-related metric. These results are limited to the current simulator and operating conditions. The sensor noise is illustrative, and no real-vehicle, hardware-in-the-loop, or driver-response validation has been performed.
 
 **Index Terms—** vehicle stability, early warning, retrofit sensors, multi-horizon forecasting, beta–yaw-rate representation, XGBoost, LSTM, GRU, event-level evaluation.
 
@@ -66,7 +66,7 @@ MAE is the mean absolute error in the dimensionless margin; RMSE is the square r
 
 ### D. Warning calibration and event evaluation
 
-Warning thresholds are calibrated using validation predictions only and are then frozen for test evaluation. The calibration implementation searches candidate thresholds from −0.50 to +0.50 in increments of 0.05. The final paper must state the exact objective and tie-breaking rule from the calibration code; this draft does not assume that a threshold maximizes a particular metric until that code path is verified.
+Warning thresholds are calibrated using validation predictions only and are then frozen for test evaluation. The calibration implementation searches candidate thresholds from −0.50 to +0.50 in increments of 0.05. The matched event-warning ablation separately calibrates a threshold for each method and horizon on validation runs. It selects the candidate with the highest early-event detection rate among candidates with no more than 0.5 unassociated warning episodes per validation run; ties are resolved by fewer unassociated episodes and then the higher threshold. If no candidate meets the burden cap, the implementation selects the lowest-burden candidate and flags infeasibility. In the latest run, all nine method/horizon settings met the validation cap. The frozen thresholds were then applied to the 44-run test set.
 
 The simulator's instability flag uses a sustained negative-margin condition. At 20 Hz, three consecutive samples correspond to 0.15 s. In the current event evaluator, contiguous true-flag samples within each run form a ground-truth event. A warning episode is formed from predicted margins below the calibrated threshold, requiring two consecutive warning samples. The evaluator groups warning samples using a 0.20 s gap parameter. A warning counts as an early detection only if it starts at or before the event onset and within the 5 s pre-event association window. Warnings starting after onset but before the event end are counted separately as late-only. Each warning episode can be matched to at most one event; any unmatched episode is counted as unassociated.
 
@@ -74,7 +74,7 @@ Point-wise metrics count individual samples. Event-level detection asks whether 
 
 ## IV. Experimental Setup
 
-The dataset contains 47,520 synchronized simulated samples across 288 runs. The run-level split comprises 201 training runs, 43 validation runs, and 44 test runs. The held-out test set contains 4,584 temporal sequences. The simulation varies maneuver, nominal road-friction category (dry, wet, and ice/snow), target speed, and steering amplitude. In the author's local surface-stratified run, the test partition contained 10 dry runs (1,010 sequences), 16 ice/snow runs (1,696 sequences), and 18 wet runs (1,878 sequences). The 36 provisional XGBoost/LSTM/GRU/Hybrid metric rows are recorded in `surface_stratified_metrics_2026-10-21.csv`. These results should be regenerated with the updated script, which now also includes persistence and the sensor-only physics observer, before final submission.
+The dataset contains 47,520 synchronized simulated samples across 288 runs. The run-level split comprises 201 training runs, 43 validation runs, and 44 test runs. The held-out test set contains 4,584 temporal sequences. The simulation varies maneuver, nominal road-friction category (dry, wet, and ice/snow), target speed, and steering amplitude. In the author's local surface-stratified run, the test partition contained 10 dry runs (1,010 sequences), 16 ice/snow runs (1,696 sequences), and 18 wet runs (1,878 sequences). The 36 provisional XGBoost/LSTM/GRU/Hybrid metric rows are recorded in `surface_stratified_metrics_2026-10-21.csv`. The updated script includes persistence and the sensor-only physics observer; the final local run regenerated these metrics.
 
 The test set is not a sample of independent real vehicles. It does not establish transfer across vehicle geometries, payloads, production tire characteristics, road conditions, or actual retrofit sensor hardware. The simulator does not model dynamic load transfer, combined longitudinal/lateral tire forces, or roll/suspension dynamics. For these reasons, an LTR threshold cannot be claimed as a validated baseline from the present lateral model alone.
 
@@ -82,7 +82,7 @@ The test set is not a sample of independent real vehicles. It does not establish
 
 ### A. Event-level results
 
-The latest local event-level evaluation extracts 39 simulated ground-truth events. The early-detection results are:
+The latest local event-level evaluation extracts 39 simulated ground-truth events. The event-level snapshot below uses the model thresholds in the existing evaluation artifacts; it is distinct from the new validation-calibrated event-warning ablation table later in this section. The early-detection results are:
 
 | Model | Horizon | Early detections | Early detection rate | Median lead (s) | Unassociated warning episodes |
 |---|---:|---:|---:|---:|---:|
@@ -113,7 +113,26 @@ The event-level estimates now have run-cluster bootstrap intervals based on 2,00
 
 
 
-### D. Repeated-seed regression and ablation
+
+### D. Validation-calibrated event-warning ablation
+
+A matched event-warning ablation compared the sensor-derived physics-only observer, sensor-only XGBoost, and physics-plus-residual Hybrid. For each method and horizon, the warning threshold was selected on validation runs only by maximizing early-event detection subject to at most 0.5 unassociated warning episodes per validation run; ties were resolved by fewer unassociated episodes and then a higher threshold. All nine configurations met this validation constraint. The selected thresholds and test results were saved to `event_warning_ablation_validation_thresholds.csv` and `event_warning_ablation_test_results.csv` in the local `results/tables/reviewer_revision/` directory.
+
+| Method | Horizon | Frozen threshold | Early detections | Rate | Median lead (s) | Late-only events | Unassociated episodes | Unassociated episodes/run |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Physics-only sensor observer | 0.5 s | 0.35 | 26/39 | 66.7% | 0.400 | 9 | 9 | 0.205 |
+| Physics-only sensor observer | 1.0 s | 0.35 | 26/39 | 66.7% | 0.400 | 9 | 9 | 0.205 |
+| Physics-only sensor observer | 2.0 s | 0.35 | 26/39 | 66.7% | 0.400 | 9 | 9 | 0.205 |
+| Sensor-only XGBoost | 0.5 s | 0.45 | 26/39 | 66.7% | 0.850 | 9 | 20 | 0.455 |
+| Sensor-only XGBoost | 1.0 s | 0.30 | 25/39 | 64.1% | 0.800 | 9 | 21 | 0.477 |
+| Sensor-only XGBoost | 2.0 s | 0.10 | 25/39 | 64.1% | 0.850 | 10 | 17 | 0.386 |
+| Hybrid physics + residual | 0.5 s | 0.50 | 26/39 | 66.7% | 0.800 | 9 | 14 | 0.318 |
+| Hybrid physics + residual | 1.0 s | 0.45 | 26/39 | 66.7% | 0.875 | 9 | 15 | 0.341 |
+| Hybrid physics + residual | 2.0 s | 0.20 | 29/39 | 74.4% | 0.900 | 9 | 17 | 0.386 |
+
+Under this calibration rule, the Hybrid at 2.0 s produced the highest early-detection count (29/39) among the compared configurations. The physics-only observer produced fewer unassociated episodes but shorter median lead (0.40 s). XGBoost at 1.0 s had 21 unassociated episodes and a test burden of 0.477 per run, while the Hybrid at 2.0 s had 17 and 0.386 per run. These results illustrate a detection/lead-time/warning-burden trade-off; they do not establish a universal winner. The validation cap is a threshold-selection constraint, not a guarantee that the test burden will remain below 0.5 in future conditions. The ablation is simulation-only and uses the same held-out split and simulator-derived event labels.
+
+### E. Repeated-seed regression and ablation
 
 A follow-up experiment trained sensor-only XGBoost and the physics-plus-XGBoost residual Hybrid with five predeclared random seeds (11, 23, 37, 42, and 58), using the same 201/43/44 run-level split and the 4,584-sequence held-out test set. The sensor-derived physics-only comparator repeats its current-margin estimate across the forecast horizons and is deterministic, so its across-seed standard deviation is zero by construction. These are regression results only; thresholds were not recalibrated and event-warning metrics were not recomputed for each seed.
 
@@ -131,9 +150,9 @@ A follow-up experiment trained sensor-only XGBoost and the physics-plus-XGBoost 
 
 In this five-seed regression experiment, the Hybrid had the lowest MAE and RMSE and highest R² of these three methods at each horizon, and its variation across these five seeds was small. This supports a limited statement about regression performance on this particular simulated split. It does not establish statistical superiority over all models, because LSTM/GRU were not retrained across seeds, event-warning thresholds were not recalibrated per seed, and the same held-out simulated runs were used for all comparisons. The physics-only comparator is sensor-derived and approximate; its deterministic standard deviation is not evidence of model robustness.
 
-### E. Physics baselines, ablations and latency
+### F. Physics baselines, ablations and latency
 
-The current Hybrid is a sensor-only approximate current-margin estimator plus an XGBoost residual predictor. It is not equivalent to an independent, validated β–r boundary classifier. A defensible physics-rule comparison requires a stated boundary selected independently of test outcomes and consistent event-level calibration. A load-transfer-ratio baseline is not directly supported by the current 2-DOF lateral simulator because it lacks roll/suspension dynamics. Ablation experiments should isolate the physics estimate and residual learner using the same run split. No low-cost onboard hardware latency or memory measurement is currently verified.
+The current Hybrid is a sensor-only approximate current-margin estimator plus an XGBoost residual predictor. It is not equivalent to an independent, validated β–r boundary classifier. A defensible physics-rule comparison requires a stated boundary selected independently of test outcomes and consistent event-level calibration. A load-transfer-ratio baseline is not directly supported by the current 2-DOF lateral simulator because it lacks roll/suspension dynamics. The completed event-warning ablation isolates the sensor-derived physics observer, sensor-only XGBoost, and Hybrid under validation-calibrated thresholds; the five-seed regression ablation covers XGBoost and Hybrid but does not retrain LSTM/GRU. No low-cost onboard hardware latency or memory measurement is currently verified.
 
 ## VI. Limitations
 
@@ -141,7 +160,7 @@ This study uses synthetic data from a simplified lateral vehicle model. The tire
 
 ## VII. Conclusion
 
-This paper evaluates multi-horizon prediction of a simulated rear-axle tire-saturation-margin proxy from four noisy retrofit-style sensor channels. Run-level splitting and validation-only threshold selection reduce leakage risk, while event-level evaluation distinguishes early warnings from late and unassociated episodes. In the latest 39-event evaluation snapshot, early detection ranges from 61.5% to 74.4%, with median lead times of 0.50–0.90 s and non-negligible unassociated warning counts. Hybrid at the 2.0 s horizon has the largest early-detection count in this snapshot, but it does not dominate every warning metric. These results do not establish sufficient driver-reaction time, transfer to real vehicles, or safety improvement. Future work must include multi-seed LSTM/GRU experiments, matched event-warning ablations, surface-specific event/class counts, hardware latency tests, and validation with measured vehicle data. The completed five-seed regression experiment is limited to XGBoost, Hybrid, and the sensor-derived physics-only comparator.
+This paper evaluates multi-horizon prediction of a simulated rear-axle tire-saturation-margin proxy from four noisy retrofit-style sensor channels. Run-level splitting and validation-only threshold selection reduce leakage risk, while event-level evaluation distinguishes early warnings from late and unassociated episodes. In the latest 39-event evaluation snapshot, early detection ranges from 61.5% to 74.4%, with median lead times of 0.50–0.90 s and non-negligible unassociated warning counts. Hybrid at the 2.0 s horizon has the largest early-detection count in this snapshot, but it does not dominate every warning metric. These results do not establish sufficient driver-reaction time, transfer to real vehicles, or safety improvement. Future work must include multi-seed LSTM/GRU experiments, surface-specific event/class counts, exact sensor noise/quantization values and calibration, hardware latency tests, and validation with measured vehicle data. The completed matched event-warning ablation and five-seed regression experiment remain simulation-only; the five-seed retraining covers XGBoost and Hybrid, not LSTM/GRU.
 
 ## References
 
