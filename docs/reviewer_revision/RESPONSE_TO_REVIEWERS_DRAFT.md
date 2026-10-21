@@ -36,7 +36,7 @@ The repository currently contains an event-level evaluator that extracts 39 inst
 
 **Response draft:** We agree. The current report uses one run-level split and a single reported training configuration. The revised evaluation will separate two sources of variability: retraining across random seeds and run-level bootstrap uncertainty on the held-out test set. Bootstrap resampling uses independent held-out runs, not individual overlapping windows. The committed intervals should be cited as fixed-model uncertainty only.
 
-**Progress / remaining evidence:** Run-cluster bootstrap intervals were computed using 2,000 resamples of held-out test runs for each model/horizon. Results are committed in `results/tables/reviewer_revision/run_cluster_bootstrap_intervals.csv`. The intervals describe test-run sampling uncertainty for fixed trained models and thresholds. Repeated-seed retraining remains outstanding.
+**Progress / remaining evidence:** Run-cluster bootstrap intervals were computed using 2,000 resamples of held-out test runs for each model/horizon. Results are committed in `results/tables/reviewer_revision/run_cluster_bootstrap_intervals.csv`. The intervals describe test-run sampling uncertainty for fixed trained models and thresholds. In addition, five-seed regression experiments (seeds 11, 23, 37, 42, 58) were run for sensor-only XGBoost and the physics-plus-residual Hybrid on the same 44-run/4,584-sequence test split. The summary is preserved in `docs/reviewer_revision/repeated_seed_ablation_summary_2026-10-21.csv`. This does not cover LSTM/GRU multi-seed variability or event-warning variability.
 
 ### Comment 4 — Results by surface and horizon; reaction time
 
@@ -52,7 +52,7 @@ The repository currently contains an event-level evaluator that extracts 39 inst
 
 **Response draft:** We agree these experiments would clarify the incremental contribution of the physics-derived margin and the residual learner. The current Hybrid implementation combines a sensor-derived current-margin estimate with an XGBoost residual predictor. We will compare the physics-only, residual-learning, and persistence/learned alternatives on identical held-out runs with thresholds selected on validation data. We will also measure inference latency and memory on a specified low-cost target platform if that hardware is available.
 
-**Outstanding evidence:** Ablation results and target-hardware measurements are not yet available. The physics-only forecast is now available as a baseline path in the evaluation script, but the residual-only ablation and paired ablation table still require a dedicated controlled run. Hardware latency and memory must be measured on the specified target device; no such measurements are available here.
+**Progress / remaining evidence:** A five-seed regression comparison was completed for sensor-only XGBoost, physics-only current-margin persistence, and the physics-plus-residual Hybrid. Across the five seeds, Hybrid MAE was 0.0753, 0.1496, and 0.2904 at 0.5, 1.0, and 2.0 s respectively; corresponding sensor-only XGBoost MAE was 0.2346, 0.2720, and 0.3462. These are regression metrics on the simulated test split, not event-warning results. A residual-only ablation, validation-calibrated event-warning comparison, LSTM/GRU multi-seed study, and target-hardware latency/memory measurements remain outstanding.
 
 ### Comment 6 — English, introduction, objectives, related work
 
@@ -100,7 +100,7 @@ The repository currently contains an event-level evaluator that extracts 39 inst
 
 ### Comment 7 — Uncertainty and generalization
 
-**Response draft:** We will report the number of independent runs and the run-level split, and clearly limit conclusions to the evaluated simulated conditions. The current 44-run test set does not establish transfer to other vehicles, payloads, surfaces, sensor hardware, or driving populations. Run-level bootstrap intervals and multi-seed retraining are planned and will be reported only after execution.
+**Response draft:** We will report the number of independent runs and the run-level split, and clearly limit conclusions to the evaluated simulated conditions. The current 44-run test set does not establish transfer to other vehicles, payloads, surfaces, sensor hardware, or driving populations. Run-level bootstrap intervals have been computed for fixed models and thresholds. Five-seed regression retraining has been completed for XGBoost and Hybrid only; LSTM/GRU multi-seed training remains outstanding.
 
 ### Comment 8 — Grammar, formatting, notation, equation consistency
 
