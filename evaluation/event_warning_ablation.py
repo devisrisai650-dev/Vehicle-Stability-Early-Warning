@@ -1,4 +1,4 @@
-"""Matched validation-calibrated event-warning ablation.
+r"""Matched validation-calibrated event-warning ablation.
 
 Run from repository root:
     python .\evaluation\event_warning_ablation.py
