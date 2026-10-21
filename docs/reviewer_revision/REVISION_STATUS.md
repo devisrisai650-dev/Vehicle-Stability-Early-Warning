@@ -70,14 +70,14 @@ Not supported: “validated road-safety system,” “deploy-ready,” “suffic
 
 ## Execution checklist
 
-- [ ] Reconcile old and current event definitions/results.
+- [ ] Reconcile old and current event definitions/results; do not retain the older ~97% claim unless its event definition and denominator can be reproduced and compared.
 - [ ] Regenerate a single-source forecasting comparison for all models/horizons.
 - [ ] Run surface-stratified evaluation.
 - [ ] Run run-level bootstrap intervals.
 - [x] Run five-seed XGBoost/Hybrid regression experiment locally and record summary; raw per-seed CSV remains in the author's local `results/tables/reviewer_revision/repeated_seed_ablation_raw.csv` and should be archived with the experiment artifacts.
-- [ ] Run physics-rule baseline or document why the available data/model do not support it.
-- [x] Review the five-seed regression ablation summary. [ ] Add/run matched event-warning ablations with thresholds calibrated on validation data.
-- [ ] Benchmark hardware latency/memory.
-- [ ] Update manuscript from verified output tables.
-- [ ] Run full tests and confirm reproducibility.
+- [x] Document why a rollover/LTR physics-rule baseline is not supported by the current 2-DOF lateral/yaw model: roll dynamics, vertical load transfer, and validated load-transfer signals are absent. A rear-slip-margin comparator is not an LTR baseline.
+- [x] Review the five-seed regression ablation summary. [x] Add the matched event-warning ablation script with validation-only threshold calibration. [ ] Run it locally and review feasibility flags and test CSV.
+- [ ] Benchmark inference latency/memory on a named target device; do not report hardware performance without measuring it.
+- [ ] Update manuscript abstract/results/tables and reviewer responses from the final regenerated, checked CSVs; current drafts are not submission-ready.
+- [ ] Run `python .\\evaluation\\run_final_revision_suite.py` locally; resolve any failed stage and archive raw per-seed plus reviewer-revision CSV outputs. The suite was added to orchestrate existing analyses but has not been executed against the author's local artifacts.
 - [ ] Finalize point-by-point response with page/section locations.
