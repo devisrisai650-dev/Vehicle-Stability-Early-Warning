@@ -2,7 +2,7 @@
 
 ## Revised manuscript working draft
 
-**Status:** This is a text-first revision draft, not a submission-ready replacement PDF. The author has now run the updated comparison and 2,000-replicate run-cluster bootstrap successfully; their reported outputs are committed under `results/tables/reviewer_revision/`. Repeated-seed training, controlled ablations, surface-specific event/class counts, and target-hardware latency remain outstanding.
+**Status:** This is a text-first revision draft, not a submission-ready replacement PDF. The author has run the six-method surface-stratified comparison, 2,000-replicate run-cluster bootstrap, and a five-seed regression ablation for sensor-only XGBoost and the physics-plus-residual Hybrid. The five-seed metrics are reported in the Results section and must be retained with the corresponding generated CSVs. LSTM/GRU multi-seed training, event-level ablations, surface-specific event/class counts, and target-hardware latency remain outstanding.
 
 ## Abstract
 
@@ -60,7 +60,7 @@ The β–r state uses sideslip angle β and yaw rate r. In simulation, β is com
 
 Each input sequence contains 20 samples (one second at 20 Hz) from the four sensor channels. The targets are the future margin values at the three specified horizons. Complete runs, not overlapping windows, are split into training, validation, and test partitions: 201, 43, and 44 runs, respectively. This reduces leakage between windows from the same simulated trajectory. The current held-out test archive contains 4,584 sequences.
 
-The compared methods are persistence, XGBoost, LSTM, and GRU. The current repository also contains an experimental Hybrid model: a sensor-derived current-margin estimate is combined with an XGBoost prediction of the future-margin residual. Because numerical performance must be compared using the same target arrays, horizon alignment, and metric implementation, all final MAE/RMSE/R² values must be regenerated together before the final manuscript table is frozen.
+The compared methods are persistence, XGBoost, LSTM, and GRU. The current repository also contains an experimental Hybrid model: a sensor-derived current-margin estimate is combined with an XGBoost prediction of the future-margin residual. The five-seed experiment trains sensor-only XGBoost and this Hybrid implementation with seeds 11, 23, 37, 42, and 58, while keeping the same held-out test split. The physics-only comparator holds the sensor-derived current-margin estimate constant across horizons. These repeated-seed results are separate from the previously reported event-level results, which used fixed model artifacts and thresholds.
 
 MAE is the mean absolute error in the dimensionless margin; RMSE is the square root of the mean squared error in the same units and gives greater weight to large errors; R² compares the residual sum of squares with target variance and may be negative when a model is worse than predicting the test mean. These metrics describe regression fit, not warning utility or safety.
 
@@ -111,7 +111,27 @@ The updated local evaluation computes MAE, RMSE, and R² for persistence, XGBoos
 
 The event-level estimates now have run-cluster bootstrap intervals based on 2,000 resamples of the 44 held-out test runs. The output is saved in `results/tables/reviewer_revision/run_cluster_bootstrap_intervals.csv`. Hybrid at 2.0 s has an early-detection estimate of 0.7436 (95% bootstrap interval 0.5952–0.8781), 0.3864 unassociated warning episodes per test run (interval 0.2040–0.5909), and median lead time 0.90 s (interval 0.50–1.50 s). LSTM at 1.0 s has an early-detection estimate of 0.6410 (interval 0.4889–0.7956) and the lowest unassociated-episode estimate among these configurations, 0.1364 per test run (interval 0.0455–0.2500). Intervals overlap across several model/horizon pairs, so the results do not establish a clear statistical winner. These intervals represent test-run resampling for fixed trained models and thresholds only; they do not quantify retraining-seed variability or real-vehicle generalization. Repeated-seed training remains unrun.
 
-### D. Physics baselines, ablations and latency
+
+
+### D. Repeated-seed regression and ablation
+
+A follow-up experiment trained sensor-only XGBoost and the physics-plus-XGBoost residual Hybrid with five predeclared random seeds (11, 23, 37, 42, and 58), using the same 201/43/44 run-level split and the 4,584-sequence held-out test set. The sensor-derived physics-only comparator repeats its current-margin estimate across the forecast horizons and is deterministic, so its across-seed standard deviation is zero by construction. These are regression results only; thresholds were not recalibrated and event-warning metrics were not recomputed for each seed.
+
+| Method | Horizon | MAE mean ± SD | RMSE mean ± SD | R² mean ± SD |
+|---|---:|---:|---:|---:|
+| Physics-only | 0.5 s | 0.29494 ± 0.00000 | 0.39180 ± 0.00000 | 0.95693 ± 0.00000 |
+| Sensor-only XGBoost | 0.5 s | 0.23461 ± 0.00164 | 0.41850 ± 0.00904 | 0.95084 ± 0.00213 |
+| Hybrid physics + residual | 0.5 s | 0.07532 ± 0.00042 | 0.12810 ± 0.00185 | 0.99540 ± 0.00013 |
+| Physics-only | 1.0 s | 0.55813 ± 0.00000 | 0.75136 ± 0.00000 | 0.86784 ± 0.00000 |
+| Sensor-only XGBoost | 1.0 s | 0.27200 ± 0.00144 | 0.46229 ± 0.00171 | 0.94997 ± 0.00037 |
+| Hybrid physics + residual | 1.0 s | 0.14962 ± 0.00156 | 0.24548 ± 0.00411 | 0.98589 ± 0.00047 |
+| Physics-only | 2.0 s | 0.98927 ± 0.00000 | 1.39343 ± 0.00000 | 0.66929 ± 0.00000 |
+| Sensor-only XGBoost | 2.0 s | 0.34623 ± 0.00240 | 0.54425 ± 0.00597 | 0.94954 ± 0.00111 |
+| Hybrid physics + residual | 2.0 s | 0.29044 ± 0.00409 | 0.46743 ± 0.00754 | 0.96278 ± 0.00119 |
+
+In this five-seed regression experiment, the Hybrid had the lowest MAE and RMSE and highest R² of these three methods at each horizon, and its variation across these five seeds was small. This supports a limited statement about regression performance on this particular simulated split. It does not establish statistical superiority over all models, because LSTM/GRU were not retrained across seeds, event-warning thresholds were not recalibrated per seed, and the same held-out simulated runs were used for all comparisons. The physics-only comparator is sensor-derived and approximate; its deterministic standard deviation is not evidence of model robustness.
+
+### E. Physics baselines, ablations and latency
 
 The current Hybrid is a sensor-only approximate current-margin estimator plus an XGBoost residual predictor. It is not equivalent to an independent, validated β–r boundary classifier. A defensible physics-rule comparison requires a stated boundary selected independently of test outcomes and consistent event-level calibration. A load-transfer-ratio baseline is not directly supported by the current 2-DOF lateral simulator because it lacks roll/suspension dynamics. Ablation experiments should isolate the physics estimate and residual learner using the same run split. No low-cost onboard hardware latency or memory measurement is currently verified.
 
@@ -121,7 +141,7 @@ This study uses synthetic data from a simplified lateral vehicle model. The tire
 
 ## VII. Conclusion
 
-This paper evaluates multi-horizon prediction of a simulated rear-axle tire-saturation-margin proxy from four noisy retrofit-style sensor channels. Run-level splitting and validation-only threshold selection reduce leakage risk, while event-level evaluation distinguishes early warnings from late and unassociated episodes. In the latest 39-event evaluation snapshot, early detection ranges from 61.5% to 74.4%, with median lead times of 0.50–0.90 s and non-negligible unassociated warning counts. Hybrid at the 2.0 s horizon has the largest early-detection count in this snapshot, but it does not dominate every warning metric. These results do not establish sufficient driver-reaction time, transfer to real vehicles, or safety improvement. Future work must include repeated-seed experiments, run-level uncertainty intervals, physics-rule baselines, surface-stratified analysis, ablations, hardware latency tests, and validation with measured vehicle data.
+This paper evaluates multi-horizon prediction of a simulated rear-axle tire-saturation-margin proxy from four noisy retrofit-style sensor channels. Run-level splitting and validation-only threshold selection reduce leakage risk, while event-level evaluation distinguishes early warnings from late and unassociated episodes. In the latest 39-event evaluation snapshot, early detection ranges from 61.5% to 74.4%, with median lead times of 0.50–0.90 s and non-negligible unassociated warning counts. Hybrid at the 2.0 s horizon has the largest early-detection count in this snapshot, but it does not dominate every warning metric. These results do not establish sufficient driver-reaction time, transfer to real vehicles, or safety improvement. Future work must include multi-seed LSTM/GRU experiments, matched event-warning ablations, surface-specific event/class counts, hardware latency tests, and validation with measured vehicle data. The completed five-seed regression experiment is limited to XGBoost, Hybrid, and the sensor-derived physics-only comparator.
 
 ## References
 

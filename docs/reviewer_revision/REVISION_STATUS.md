@@ -74,9 +74,9 @@ Not supported: “validated road-safety system,” “deploy-ready,” “suffic
 - [ ] Regenerate a single-source forecasting comparison for all models/horizons.
 - [ ] Run surface-stratified evaluation.
 - [ ] Run run-level bootstrap intervals.
-- [ ] Run `python .\\evaluation\\repeated_seed_ablation_experiments.py`; inspect raw and summary CSVs before reporting. (Script added; execution not yet verified.)
+- [x] Run five-seed XGBoost/Hybrid regression experiment locally and record summary; raw per-seed CSV remains in the author's local `results/tables/reviewer_revision/repeated_seed_ablation_raw.csv` and should be archived with the experiment artifacts.
 - [ ] Run physics-rule baseline or document why the available data/model do not support it.
-- [ ] Review regression ablation results; add/run matched event-warning ablations.
+- [x] Review the five-seed regression ablation summary. [ ] Add/run matched event-warning ablations with thresholds calibrated on validation data.
 - [ ] Benchmark hardware latency/memory.
 - [ ] Update manuscript from verified output tables.
 - [ ] Run full tests and confirm reproducibility.
