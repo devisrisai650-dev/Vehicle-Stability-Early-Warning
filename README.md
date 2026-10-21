@@ -138,3 +138,13 @@ python .\\evaluation\\repeated_seed_ablation_experiments.py
 ```
 
 It trains sensor-only XGBoost and physics-plus-XGBoost residual models with five predeclared seeds (11, 23, 37, 42, 58), and compares both against a sensor-derived physics-only current-margin persistence comparator. It writes per-seed metrics and mean/standard-deviation summaries to `results/tables/reviewer_revision/repeated_seed_ablation_raw.csv` and `repeated_seed_ablation_summary.csv`. The author ran the script on the current 44-run/4,584-sequence test split; the console summary is preserved as `docs/reviewer_revision/repeated_seed_ablation_summary_2026-10-21.csv`. The per-seed raw CSV remains a local generated artifact and should be archived with the experiment outputs before final submission. It does not retrain LSTM/GRU, run event-warning threshold ablations, or measure hardware latency.
+
+### Matched event-warning ablation
+
+After validation and test prediction files exist, run:
+
+```powershell
+python .\\evaluation\\event_warning_ablation.py
+```
+
+The script compares sensor-only XGBoost, a sensor-derived physics-only observer, and physics-plus-residual Hybrid. It selects each method/horizon threshold on validation runs only, maximizing early-event detection subject to at most 0.5 unassociated warning episodes per validation run; ties are resolved by fewer unassociated episodes and then a higher threshold. It freezes those thresholds before test evaluation and writes validation threshold/grid and test results to `results/tables/reviewer_revision/event_warning_ablation_*.csv`. The script has been added but not yet executed locally; do not cite numeric results until outputs have been reviewed. If no threshold satisfies the warning-burden cap, the output explicitly marks the constraint infeasible and chooses the lowest-burden threshold.
