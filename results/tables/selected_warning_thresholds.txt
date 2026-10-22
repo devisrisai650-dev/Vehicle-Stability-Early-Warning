@@ -1,0 +1,14 @@
+SELECTED VALIDATION WARNING THRESHOLDS
+============================================================
+XGBoost | 0.5s | threshold=0.45 | detection=0.8065 | mean_lead=0.9580s | median_lead=0.8500s
+XGBoost | 1.0s | threshold=0.25 | detection=0.8065 | mean_lead=0.9420s | median_lead=1.0500s
+XGBoost | 2.0s | threshold=0.10 | detection=0.8065 | mean_lead=1.0280s | median_lead=1.1500s
+LSTM | 0.5s | threshold=0.20 | detection=0.7742 | mean_lead=0.6875s | median_lead=0.6000s
+LSTM | 1.0s | threshold=0.15 | detection=0.7742 | mean_lead=0.7729s | median_lead=0.8500s
+LSTM | 2.0s | threshold=0.10 | detection=0.7742 | mean_lead=1.1292s | median_lead=1.0000s
+GRU | 0.5s | threshold=0.25 | detection=0.7742 | mean_lead=0.7292s | median_lead=0.6500s
+GRU | 1.0s | threshold=0.30 | detection=0.8065 | mean_lead=1.0440s | median_lead=1.0000s
+GRU | 2.0s | threshold=0.25 | detection=0.7742 | mean_lead=1.1583s | median_lead=0.9500s
+Hybrid | 0.5s | threshold=0.50 | detection=0.7742 | mean_lead=1.0229s | median_lead=0.8250s
+Hybrid | 1.0s | threshold=0.45 | detection=0.7742 | mean_lead=1.0875s | median_lead=0.9750s
+Hybrid | 2.0s | threshold=0.20 | detection=0.7742 | mean_lead=1.0458s | median_lead=1.0500s

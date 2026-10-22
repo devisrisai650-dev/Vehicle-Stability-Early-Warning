@@ -1,0 +1,4 @@
+horizon,lowest_MAE_model,lowest_MAE,lowest_RMSE_model,lowest_RMSE,highest_R2_model,highest_R2,highest_detection_model,highest_detection_rate,highest_mean_lead_model,highest_mean_lead_time_s,lowest_false_warning_model,lowest_false_warning_episodes
+0.5s,XGBoost,0.2356318682432174,Persistence,0.3937814783199034,Persistence,0.9564893841743468,GRU,1.0,XGBoost,0.3823529411764706,LSTM,8
+1.0s,XGBoost,0.2713727951049804,LSTM,0.4544749867750304,LSTM,0.9516476392745972,XGBoost,0.9722222222222222,GRU,0.1803030303030303,LSTM,9
+2.0s,GRU,0.3172002732753753,GRU,0.5010808349124996,GRU,0.9572340846061708,GRU,0.9444444444444444,GRU,0.2602941176470588,LSTM,14

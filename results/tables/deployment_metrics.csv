@@ -1,0 +1,4 @@
+model,prediction_array_shape,prediction_array_bytes,prediction_array_MB,array_operation_time_us
+XGBoost,"(4584, 3)",55008,0.052459716796875,0.24799956008791926
+LSTM,"(4584, 3)",55008,0.052459716796875,0.1780001912266016
+GRU,"(4584, 3)",55008,0.052459716796875,0.16900012269616127

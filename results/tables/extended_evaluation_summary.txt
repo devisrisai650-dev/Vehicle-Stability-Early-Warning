@@ -1,0 +1,86 @@
+EXTENDED VEHICLE STABILITY EARLY-WARNING EVALUATION
+======================================================================
+
+This report summarizes the additional research-grade evaluation metrics.
+
+MODELS
+XGBoost, LSTM, GRU
+
+HORIZONS
+0.5 s, 1.0 s, 2.0 s
+
+CLASSIFICATION METRICS
+  model horizon  threshold   TP   TN  FP  FN  accuracy  precision   recall  sensitivity  specificity       F1  balanced_accuracy      NPV  false_positive_rate  false_negative_rate      MCC  ROC_AUC   PR_AUC
+XGBoost    0.5s       0.45 1588 2299   0 697  0.847949   1.000000 0.694967     0.694967     1.000000 0.820036           0.847484 0.767356             0.000000             0.305033 0.730265 0.992646 0.993052
+XGBoost    1.0s       0.25 1799 2336  17 432  0.902051   0.990639 0.806365     0.806365     0.992775 0.889054           0.899570 0.843931             0.007225             0.193635 0.816663 0.985572 0.985633
+XGBoost    2.0s       0.10 1838 2257 157 332  0.893325   0.921303 0.847005     0.847005     0.934963 0.882593           0.890984 0.871765             0.065037             0.152995 0.787498 0.967459 0.965333
+   LSTM    0.5s       0.50 1372 2273  26 913  0.795157   0.981402 0.600438     0.600438     0.988691 0.745045           0.794564 0.713434             0.011309             0.399562 0.639803 0.983805 0.981523
+   LSTM    1.0s       0.15 2026 2221 132 205  0.926483   0.938832 0.908113     0.908113     0.943901 0.923217           0.926007 0.915499             0.056099             0.091887 0.853172 0.983161 0.980965
+   LSTM    2.0s       0.10 1764 2298 116 406  0.886126   0.938298 0.812903     0.812903     0.951947 0.871111           0.882425 0.849852             0.048053             0.187097 0.776413 0.966494 0.960982
+    GRU    0.5s       0.25 2020 2219  80 265  0.924738   0.961905 0.884026     0.884026     0.965202 0.921323           0.924614 0.893317             0.034798             0.115974 0.852220 0.989899 0.989090
+    GRU    1.0s       0.30 1709 2301  52 522  0.874782   0.970471 0.766024     0.766024     0.977901 0.856212           0.871962 0.815090             0.022099             0.233976 0.764460 0.986547 0.983973
+    GRU    2.0s       0.25 1495 2361  53 675  0.841187   0.965762 0.688940     0.688940     0.978045 0.804196           0.833492 0.777668             0.021955             0.311060 0.704171 0.971605 0.965832
+
+EVENT / EARLY-WARNING METRICS
+  model horizon  threshold  total_events  detected_events  missed_events  event_detection_rate  event_miss_rate  mean_lead_time_s  median_lead_time_s  std_lead_time_s  lead_time_q25_s  lead_time_q75_s  min_lead_time_s  max_lead_time_s  total_warning_episodes  false_warning_episodes  false_warning_episode_rate
+XGBoost    0.5s       0.45            37                5             32              0.135135         0.864865          3.460000               3.650         1.817801           1.6500           5.1500             1.15             5.70                      56                       0                    0.000000
+XGBoost    1.0s       0.25            34                7             27              0.205882         0.794118          2.707143               1.400         2.021214           0.9250           4.9250             0.65             5.20                      63                       3                    0.047619
+XGBoost    2.0s       0.10            30                6             24              0.200000         0.800000          2.025000               1.850         1.435778           0.8625           3.3250             0.15             3.95                      58                       9                    0.155172
+   LSTM    0.5s       0.50            37                7             30              0.189189         0.810811          2.928571               1.600         2.292824           1.1750           5.4250             0.00             5.70                      42                       1                    0.023810
+   LSTM    1.0s       0.15            34                5             29              0.147059         0.852941          3.740000               4.650         1.576515           1.8500           5.2000             1.80             5.20                      48                       4                    0.083333
+   LSTM    2.0s       0.10            30                8             22              0.266667         0.733333          3.475000               3.925         2.029470           2.0000           4.6375             0.25             6.25                      51                       8                    0.156863
+    GRU    0.5s       0.25            37                5             32              0.135135         0.864865          4.160000               5.150         1.682676           2.4000           5.7000             1.85             5.70                      43                       1                    0.023256
+    GRU    1.0s       0.30            34                8             26              0.235294         0.764706          3.362500               3.200         2.239943           1.2875           5.2000             0.70             6.95                      60                       5                    0.083333
+    GRU    2.0s       0.25            30                7             23              0.233333         0.766667          3.178571               3.650         1.829297           1.7250           4.2000             0.50             6.25                      56                       8                    0.142857
+
+TIMELY DETECTION
+ required_lead_time_s  total_events  timely_detected_events  timely_detection_rate  timely_missed_events   model horizon  threshold
+                 0.25            37                       5               0.135135                    32 XGBoost    0.5s       0.45
+                 0.50            37                       5               0.135135                    32 XGBoost    0.5s       0.45
+                 1.00            37                       5               0.135135                    32 XGBoost    0.5s       0.45
+                 2.00            37                       3               0.081081                    34 XGBoost    0.5s       0.45
+                 0.25            34                       7               0.205882                    27 XGBoost    1.0s       0.25
+                 0.50            34                       7               0.205882                    27 XGBoost    1.0s       0.25
+                 1.00            34                       5               0.147059                    29 XGBoost    1.0s       0.25
+                 2.00            34                       3               0.088235                    31 XGBoost    1.0s       0.25
+                 0.25            30                       5               0.166667                    25 XGBoost    2.0s       0.10
+                 0.50            30                       5               0.166667                    25 XGBoost    2.0s       0.10
+                 1.00            30                       4               0.133333                    26 XGBoost    2.0s       0.10
+                 2.00            30                       3               0.100000                    27 XGBoost    2.0s       0.10
+                 0.25            37                       6               0.162162                    31    LSTM    0.5s       0.50
+                 0.50            37                       6               0.162162                    31    LSTM    0.5s       0.50
+                 1.00            37                       6               0.162162                    31    LSTM    0.5s       0.50
+                 2.00            37                       3               0.081081                    34    LSTM    0.5s       0.50
+                 0.25            34                       5               0.147059                    29    LSTM    1.0s       0.15
+                 0.50            34                       5               0.147059                    29    LSTM    1.0s       0.15
+                 1.00            34                       5               0.147059                    29    LSTM    1.0s       0.15
+                 2.00            34                       3               0.088235                    31    LSTM    1.0s       0.15
+                 0.25            30                       8               0.266667                    22    LSTM    2.0s       0.10
+                 0.50            30                       7               0.233333                    23    LSTM    2.0s       0.10
+                 1.00            30                       6               0.200000                    24    LSTM    2.0s       0.10
+                 2.00            30                       6               0.200000                    24    LSTM    2.0s       0.10
+                 0.25            37                       5               0.135135                    32     GRU    0.5s       0.25
+                 0.50            37                       5               0.135135                    32     GRU    0.5s       0.25
+                 1.00            37                       5               0.135135                    32     GRU    0.5s       0.25
+                 2.00            37                       4               0.108108                    33     GRU    0.5s       0.25
+                 0.25            34                       8               0.235294                    26     GRU    1.0s       0.30
+                 0.50            34                       8               0.235294                    26     GRU    1.0s       0.30
+                 1.00            34                       7               0.205882                    27     GRU    1.0s       0.30
+                 2.00            34                       4               0.117647                    30     GRU    1.0s       0.30
+                 0.25            30                       7               0.233333                    23     GRU    2.0s       0.25
+                 0.50            30                       7               0.233333                    23     GRU    2.0s       0.25
+                 1.00            30                       6               0.200000                    24     GRU    2.0s       0.25
+                 2.00            30                       5               0.166667                    25     GRU    2.0s       0.25
+
+DEPLOYMENT METRICS
+  model prediction_array_shape  prediction_array_bytes  prediction_array_MB  array_operation_time_us
+XGBoost              (4584, 3)                   55008              0.05246                    0.248
+   LSTM              (4584, 3)                   55008              0.05246                    0.178
+    GRU              (4584, 3)                   55008              0.05246                    0.169
+
+INTERPRETATION NOTE
+Sample-level classification accuracy should not be used alone to characterize an early-warning system. Event detection, timely detection, lead time and false-warning behavior are reported separately.
+
+Confidence intervals should be interpreted at the run level because samples within a vehicle run are temporally correlated.
+
+No comparison with results from another paper should be interpreted as a direct numerical superiority claim unless the datasets, vehicle class, prediction target and evaluation protocol are comparable.

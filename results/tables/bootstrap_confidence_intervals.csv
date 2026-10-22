@@ -1,0 +1,10 @@
+model,horizon,metric,estimate,ci_lower,ci_upper,n_runs
+XGBoost,0.5s,run_level_event_detection_rate,0.859375,0.75,0.953125,32
+XGBoost,1.0s,run_level_event_detection_rate,0.9166666666666666,0.8095238095238094,1.0,28
+XGBoost,2.0s,run_level_event_detection_rate,0.9375,0.8333333333333334,1.0,24
+LSTM,0.5s,run_level_event_detection_rate,0.890625,0.796875,0.96875,32
+LSTM,1.0s,run_level_event_detection_rate,0.988095238095238,0.9642857142857143,1.0,28
+LSTM,2.0s,run_level_event_detection_rate,0.9791666666666666,0.9375,1.0,24
+GRU,0.5s,run_level_event_detection_rate,1.0,1.0,1.0,32
+GRU,1.0s,run_level_event_detection_rate,0.886904761904762,0.7678571428571429,0.9821428571428571,28
+GRU,2.0s,run_level_event_detection_rate,0.861111111111111,0.7291666666666666,0.9652777777777777,24

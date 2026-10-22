@@ -1,0 +1,10 @@
+horizon,threshold,total_events,early_detected_events,event_detection_rate,late_warning_events,unassociated_warning_episodes,unassociated_episodes_per_run,median_lead_time_s,total_warning_episodes,method,validation_threshold,validation_burden_constraint_feasible,test_runs
+0.5s,0.35,39,26,0.6666666666666666,9,9,0.20454545454545456,0.4,44,Physics-only sensor observer,0.35,True,44
+1.0s,0.35,39,26,0.6666666666666666,9,9,0.20454545454545456,0.4,44,Physics-only sensor observer,0.35,True,44
+2.0s,0.35,39,26,0.6666666666666666,9,9,0.20454545454545456,0.4,44,Physics-only sensor observer,0.35,True,44
+0.5s,0.45,39,26,0.6666666666666666,9,20,0.45454545454545453,0.8500000000000001,55,XGBoost sensor-only,0.45,True,44
+1.0s,0.3,39,25,0.6410256410256411,9,21,0.4772727272727273,0.8,55,XGBoost sensor-only,0.3,True,44
+2.0s,0.1,39,25,0.6410256410256411,10,17,0.38636363636363635,0.8500000000000001,52,XGBoost sensor-only,0.1,True,44
+0.5s,0.5,39,26,0.6666666666666666,9,14,0.3181818181818182,0.8,49,Hybrid physics + residual,0.5,True,44
+1.0s,0.45,39,26,0.6666666666666666,9,15,0.3409090909090909,0.8750000000000001,50,Hybrid physics + residual,0.45,True,44
+2.0s,0.2,39,29,0.7435897435897436,9,17,0.38636363636363635,0.9000000000000001,55,Hybrid physics + residual,0.2,True,44

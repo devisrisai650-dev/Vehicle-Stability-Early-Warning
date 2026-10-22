@@ -1,0 +1,177 @@
+======================================================================
+ROBUSTNESS AND GENERALIZATION REPORT
+======================================================================
+
+This evaluation measures whether the final models retain forecasting performance across operating conditions and under sensor perturbations.
+
+The analysis is based on the held-out test sequences and does not retrain or alter the final models.
+
+20% SENSOR-NOISE SUMMARY
+----------------------------------------------------------------------
+  model horizon  clean_MAE  noise20_MAE  MAE_degradation_20pct  clean_RMSE  noise20_RMSE  RMSE_degradation_20pct  clean_R2  noise20_R2  R2_drop_20pct
+XGBoost    0.5s   0.235632     0.414101              75.740510    0.431360      0.654199               51.659646  0.947789    0.879911       0.067878
+XGBoost    1.0s   0.271373     0.461851              70.190484    0.461505      0.699410               51.549798  0.950140    0.885485       0.064655
+XGBoost    2.0s   0.342883     0.520417              51.776640    0.548021      0.748718               36.622108  0.948846    0.904519       0.044328
+   LSTM    0.5s   0.286177     0.325781              13.839208    0.483808      0.532729               10.111614  0.934320    0.920366       0.013954
+   LSTM    1.0s   0.279725     0.325085              16.215770    0.454475      0.510235               12.269185  0.951648    0.939055       0.012593
+   LSTM    2.0s   0.347288     0.391063              12.605010    0.531178      0.585610               10.247387  0.951942    0.941588       0.010354
+    GRU    0.5s   0.273550     0.345059              26.140917    0.550188      0.606785               10.286861  0.915061    0.896687       0.018374
+    GRU    1.0s   0.274031     0.353779              29.101816    0.504207      0.578536               14.741792  0.940487    0.921647       0.018840
+    GRU    2.0s   0.317200     0.419443              32.232725    0.501081      0.620233               23.779050  0.957234    0.934477       0.022757
+
+CONDITION-WISE RESULTS
+----------------------------------------------------------------------
+  model horizon        subset          condition  noise_percent  n_samples      MAE     RMSE       R2
+XGBoost    0.5s       surface                dry              0       1010 0.458939 0.789862 0.704421
+XGBoost    1.0s       surface                dry              0       1010 0.524722 0.821463 0.739102
+XGBoost    2.0s       surface                dry              0       1010 0.653909 0.933498 0.765331
+   LSTM    0.5s       surface                dry              0       1010 0.509262 0.762885 0.724267
+   LSTM    1.0s       surface                dry              0       1010 0.472079 0.689408 0.816241
+   LSTM    2.0s       surface                dry              0       1010 0.561562 0.780718 0.835859
+    GRU    0.5s       surface                dry              0       1010 0.507967 0.906861 0.610371
+    GRU    1.0s       surface                dry              0       1010 0.480049 0.793677 0.756453
+    GRU    2.0s       surface                dry              0       1010 0.538238 0.731888 0.855749
+XGBoost    0.5s       surface           ice_snow              0       1696 0.186507 0.257926 0.982306
+XGBoost    1.0s       surface           ice_snow              0       1696 0.203067 0.274390 0.982666
+XGBoost    2.0s       surface           ice_snow              0       1696 0.269714 0.358197 0.977312
+   LSTM    0.5s       surface           ice_snow              0       1696 0.224614 0.336267 0.969925
+   LSTM    1.0s       surface           ice_snow              0       1696 0.220280 0.331356 0.974721
+   LSTM    2.0s       surface           ice_snow              0       1696 0.272452 0.392753 0.972723
+    GRU    0.5s       surface           ice_snow              0       1696 0.208345 0.375043 0.962588
+    GRU    1.0s       surface           ice_snow              0       1696 0.216938 0.353745 0.971190
+    GRU    2.0s       surface           ice_snow              0       1696 0.225227 0.331896 0.980521
+XGBoost    0.5s       surface                wet              0       1878 0.159900 0.242023 0.985232
+XGBoost    1.0s       surface                wet              0       1878 0.196807 0.298284 0.981457
+XGBoost    2.0s       surface                wet              0       1878 0.241690 0.385410 0.977595
+   LSTM    0.5s       surface                wet              0       1878 0.221796 0.395251 0.960612
+   LSTM    1.0s       surface                wet              0       1878 0.229961 0.386515 0.968864
+   LSTM    2.0s       surface                wet              0       1878 0.299633 0.470732 0.966576
+    GRU    0.5s       surface                wet              0       1878 0.206365 0.411776 0.957250
+    GRU    1.0s       surface                wet              0       1878 0.214793 0.410791 0.964830
+    GRU    2.0s       surface                wet              0       1878 0.281385 0.474662 0.966016
+XGBoost    0.5s     speed_kmh                110              0       1071 0.238105 0.390857 0.948864
+XGBoost    1.0s     speed_kmh                110              0       1071 0.256103 0.398916 0.954636
+XGBoost    2.0s     speed_kmh                110              0       1071 0.350843 0.545578 0.937784
+   LSTM    0.5s     speed_kmh                110              0       1071 0.353073 0.606102 0.877035
+   LSTM    1.0s     speed_kmh                110              0       1071 0.322138 0.521603 0.922442
+   LSTM    2.0s     speed_kmh                110              0       1071 0.361907 0.529468 0.941404
+    GRU    0.5s     speed_kmh                110              0       1071 0.399120 0.710967 0.830805
+    GRU    1.0s     speed_kmh                110              0       1071 0.386108 0.650030 0.879548
+    GRU    2.0s     speed_kmh                110              0       1071 0.406568 0.598169 0.925212
+XGBoost    0.5s     speed_kmh                 50              0        787 0.144828 0.227896 0.901518
+XGBoost    1.0s     speed_kmh                 50              0        787 0.174894 0.270725 0.900820
+XGBoost    2.0s     speed_kmh                 50              0        787 0.255640 0.383881 0.888730
+   LSTM    0.5s     speed_kmh                 50              0        787 0.135978 0.188495 0.932628
+   LSTM    1.0s     speed_kmh                 50              0        787 0.151700 0.221458 0.933633
+   LSTM    2.0s     speed_kmh                 50              0        787 0.216368 0.336515 0.914494
+    GRU    0.5s     speed_kmh                 50              0        787 0.111281 0.188754 0.932442
+    GRU    1.0s     speed_kmh                 50              0        787 0.135580 0.194570 0.948771
+    GRU    2.0s     speed_kmh                 50              0        787 0.157189 0.249280 0.953080
+XGBoost    0.5s     speed_kmh                 70              0       1272 0.178108 0.256519 0.981013
+XGBoost    1.0s     speed_kmh                 70              0       1272 0.192642 0.286952 0.979938
+XGBoost    2.0s     speed_kmh                 70              0       1272 0.248413 0.377796 0.973752
+   LSTM    0.5s     speed_kmh                 70              0       1272 0.258179 0.397805 0.954338
+   LSTM    1.0s     speed_kmh                 70              0       1272 0.252067 0.398168 0.961374
+   LSTM    2.0s     speed_kmh                 70              0       1272 0.318162 0.451422 0.962524
+    GRU    0.5s     speed_kmh                 70              0       1272 0.211563 0.389969 0.956119
+    GRU    1.0s     speed_kmh                 70              0       1272 0.215753 0.382656 0.964325
+    GRU    2.0s     speed_kmh                 70              0       1272 0.276237 0.413250 0.968594
+XGBoost    0.5s     speed_kmh                 90              0       1454 0.333283 0.623233 0.911180
+XGBoost    1.0s     speed_kmh                 90              0       1454 0.403716 0.665251 0.914954
+XGBoost    2.0s     speed_kmh                 90              0       1454 0.466888 0.723158 0.925443
+   LSTM    0.5s     speed_kmh                 90              0       1454 0.342692 0.556492 0.929185
+   LSTM    1.0s     speed_kmh                 90              0       1454 0.341977 0.534356 0.945129
+   LSTM    2.0s     speed_kmh                 90              0       1454 0.432861 0.665935 0.936775
+    GRU    0.5s     speed_kmh                 90              0       1454 0.323117 0.655505 0.901744
+    GRU    1.0s     speed_kmh                 90              0       1454 0.317398 0.584520 0.934343
+    GRU    2.0s     speed_kmh                 90              0       1454 0.373818 0.587360 0.950815
+XGBoost    0.5s      maneuver double_lane_change              0        729 0.162477 0.256090 0.973862
+XGBoost    1.0s      maneuver double_lane_change              0        729 0.238189 0.369152 0.959288
+XGBoost    2.0s      maneuver double_lane_change              0        729 0.427149 0.660701 0.920538
+   LSTM    0.5s      maneuver double_lane_change              0        729 0.204127 0.293094 0.965762
+   LSTM    1.0s      maneuver double_lane_change              0        729 0.266086 0.385055 0.955705
+   LSTM    2.0s      maneuver double_lane_change              0        729 0.437963 0.609097 0.932466
+    GRU    0.5s      maneuver double_lane_change              0        729 0.195230 0.272065 0.970499
+    GRU    1.0s      maneuver double_lane_change              0        729 0.239272 0.310467 0.971203
+    GRU    2.0s      maneuver double_lane_change              0        729 0.363399 0.482529 0.957616
+XGBoost    0.5s      maneuver         ramp_steer              0       1128 0.101425 0.134485 0.906967
+XGBoost    1.0s      maneuver         ramp_steer              0       1128 0.116836 0.147768 0.883250
+XGBoost    2.0s      maneuver         ramp_steer              0       1128 0.193260 0.245022 0.655447
+   LSTM    0.5s      maneuver         ramp_steer              0       1128 0.129295 0.195456 0.803490
+   LSTM    1.0s      maneuver         ramp_steer              0       1128 0.134181 0.197229 0.792015
+   LSTM    2.0s      maneuver         ramp_steer              0       1128 0.191716 0.259352 0.613965
+    GRU    0.5s      maneuver         ramp_steer              0       1128 0.092913 0.125587 0.918871
+    GRU    1.0s      maneuver         ramp_steer              0       1128 0.106373 0.134869 0.902745
+    GRU    2.0s      maneuver         ramp_steer              0       1128 0.142031 0.184183 0.805309
+XGBoost    0.5s      maneuver         sine_sweep              0       1212 0.190487 0.271067 0.987353
+XGBoost    1.0s      maneuver         sine_sweep              0       1212 0.216421 0.301352 0.985989
+XGBoost    2.0s      maneuver         sine_sweep              0       1212 0.252511 0.353322 0.983963
+   LSTM    0.5s      maneuver         sine_sweep              0       1212 0.196244 0.291679 0.985357
+   LSTM    1.0s      maneuver         sine_sweep              0       1212 0.202398 0.283791 0.987574
+   LSTM    2.0s      maneuver         sine_sweep              0       1212 0.227684 0.342373 0.984941
+    GRU    0.5s      maneuver         sine_sweep              0       1212 0.183275 0.368594 0.976615
+    GRU    1.0s      maneuver         sine_sweep              0       1212 0.193013 0.358789 0.980139
+    GRU    2.0s      maneuver         sine_sweep              0       1212 0.203256 0.355816 0.983735
+XGBoost    0.5s      maneuver         step_steer              0       1515 0.406873 0.677642 0.760586
+XGBoost    1.0s      maneuver         step_steer              0       1515 0.446363 0.699973 0.780010
+XGBoost    2.0s      maneuver         step_steer              0       1515 0.486037 0.744374 0.806868
+   LSTM    0.5s      maneuver         step_steer              0       1515 0.514411 0.755245 0.702611
+   LSTM    1.0s      maneuver         step_steer              0       1515 0.456517 0.678397 0.793363
+   LSTM    2.0s      maneuver         step_steer              0       1515 0.515170 0.728928 0.814800
+    GRU    0.5s      maneuver         step_steer              0       1515 0.517952 0.871701 0.603828
+    GRU    1.0s      maneuver         step_steer              0       1515 0.480401 0.778659 0.727771
+    GRU    2.0s      maneuver         step_steer              0       1515 0.516549 0.721894 0.818357
+XGBoost    0.5s amplitude_deg                  1              0        585 0.085130 0.106746 0.559586
+XGBoost    1.0s amplitude_deg                  1              0        585 0.099257 0.127877 0.452127
+XGBoost    2.0s amplitude_deg                  1              0        585 0.115839 0.153132 0.419916
+   LSTM    0.5s amplitude_deg                  1              0        585 0.093130 0.110780 0.525664
+   LSTM    1.0s amplitude_deg                  1              0        585 0.105461 0.123043 0.492765
+   LSTM    2.0s amplitude_deg                  1              0        585 0.115204 0.138941 0.522447
+    GRU    0.5s amplitude_deg                  1              0        585 0.060930 0.078218 0.763534
+    GRU    1.0s amplitude_deg                  1              0        585 0.077325 0.096867 0.685628
+    GRU    2.0s amplitude_deg                  1              0        585 0.137451 0.165012 0.326422
+XGBoost    0.5s amplitude_deg                 10              0        747 0.168507 0.220298 0.987688
+XGBoost    1.0s amplitude_deg                 10              0        747 0.225264 0.299000 0.981420
+XGBoost    2.0s amplitude_deg                 10              0        747 0.372399 0.591548 0.946872
+   LSTM    0.5s amplitude_deg                 10              0        747 0.225120 0.293946 0.978080
+   LSTM    1.0s amplitude_deg                 10              0        747 0.231532 0.299350 0.981377
+   LSTM    2.0s amplitude_deg                 10              0        747 0.370388 0.531141 0.957169
+    GRU    0.5s amplitude_deg                 10              0        747 0.151867 0.198886 0.989965
+    GRU    1.0s amplitude_deg                 10              0        747 0.150741 0.187477 0.992695
+    GRU    2.0s amplitude_deg                 10              0        747 0.338932 0.465722 0.967070
+XGBoost    0.5s amplitude_deg                  2              0        849 0.190612 0.262206 0.955925
+XGBoost    1.0s amplitude_deg                  2              0        849 0.203310 0.289819 0.957601
+XGBoost    2.0s amplitude_deg                  2              0        849 0.276602 0.384382 0.951713
+   LSTM    0.5s amplitude_deg                  2              0        849 0.293031 0.507569 0.834844
+   LSTM    1.0s amplitude_deg                  2              0        849 0.272383 0.457116 0.894523
+   LSTM    2.0s amplitude_deg                  2              0        849 0.304410 0.435212 0.938098
+    GRU    0.5s amplitude_deg                  2              0        849 0.322990 0.596051 0.772244
+    GRU    1.0s amplitude_deg                  2              0        849 0.346505 0.580717 0.829771
+    GRU    2.0s amplitude_deg                  2              0        849 0.346980 0.543795 0.903356
+XGBoost    0.5s amplitude_deg                  3              0        727 0.261027 0.428227 0.936713
+XGBoost    1.0s amplitude_deg                  3              0        727 0.336593 0.512613 0.926776
+XGBoost    2.0s amplitude_deg                  3              0        727 0.459646 0.704461 0.904530
+   LSTM    0.5s amplitude_deg                  3              0        727 0.284957 0.486183 0.918424
+   LSTM    1.0s amplitude_deg                  3              0        727 0.330731 0.550558 0.915534
+   LSTM    2.0s amplitude_deg                  3              0        727 0.458573 0.724538 0.899011
+    GRU    0.5s amplitude_deg                  3              0        727 0.161170 0.271659 0.974531
+    GRU    1.0s amplitude_deg                  3              0        727 0.214710 0.345810 0.966676
+    GRU    2.0s amplitude_deg                  3              0        727 0.327366 0.546625 0.942518
+XGBoost    0.5s amplitude_deg                  5              0       1009 0.282070 0.603580 0.914824
+XGBoost    1.0s amplitude_deg                  5              0       1009 0.310539 0.610278 0.923289
+XGBoost    2.0s amplitude_deg                  5              0       1009 0.346507 0.537567 0.952785
+   LSTM    0.5s amplitude_deg                  5              0       1009 0.273770 0.439203 0.954900
+   LSTM    1.0s amplitude_deg                  5              0       1009 0.245938 0.373657 0.971243
+   LSTM    2.0s amplitude_deg                  5              0       1009 0.303313 0.427408 0.970153
+    GRU    0.5s amplitude_deg                  5              0       1009 0.338584 0.696071 0.886720
+    GRU    1.0s amplitude_deg                  5              0       1009 0.315839 0.598587 0.926200
+    GRU    2.0s amplitude_deg                  5              0       1009 0.272476 0.439577 0.968429
+XGBoost    0.5s amplitude_deg                  7              0        667 0.402182 0.613149 0.854014
+XGBoost    1.0s amplitude_deg                  7              0        667 0.430267 0.626556 0.871864
+XGBoost    2.0s amplitude_deg                  7              0        667 0.460579 0.696726 0.892546
+   LSTM    0.5s amplitude_deg                  7              0        667 0.535243 0.789787 0.757786
+   LSTM    1.0s amplitude_deg                  7              0        667 0.491403 0.705914 0.837350
+   LSTM    2.0s amplitude_deg                  7              0        667 0.524773 0.718750 0.885646
+    GRU    0.5s amplitude_deg                  7              0        667 0.557490 0.874700 0.702904
+    GRU    1.0s amplitude_deg                  7              0        667 0.493793 0.773280 0.804824
+    GRU    2.0s amplitude_deg                  7              0        667 0.469184 0.681471 0.897201
