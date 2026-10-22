@@ -1,0 +1,18 @@
+# Draft Response to Reviewers
+
+This response is a draft. Page references should be inserted only after final typesetting.
+
+## General response
+
+We revised the paper to distinguish established algorithms from the evaluation contribution, document the simulated sensor inputs and target, formalize threshold calibration and event association, discuss the persistence metric anomaly, and limit claims to the available simulation evidence. The old approximately 97% event-detection claim was removed from the updated analysis because it used a different event count and warning protocol from the current 39-event evaluator.
+
+## Key technical responses
+
+1. **Novelty:** XGBoost, LSTM, GRU, and the beta-yaw-rate representation are established. The revised contribution is a reproducible warning-oriented workflow with run-level splitting, validation-frozen thresholds, a residual Hybrid comparison, and event-level warning-burden metrics.
+2. **Sensing and beta:** Four simulated noisy/quantized inputs are yaw rate, lateral acceleration, longitudinal speed, and steering angle at 20 Hz. Beta is computed from simulator-state velocities and is not an input. No hardware beta estimator or real sensor validation is claimed; a real retrofit would need a documented observer/sensor-fusion method.
+3. **Target and errors:** The margin is dimensionless: m(t)=(alpha_r,peak-|alpha_r(t)|)/alpha_r,peak. MAE/RMSE are in margin units, while R-squared is a variance-relative fit score, not percent accuracy. Exact scaler and inverse-transform details must be verified in preprocessing before submission.
+4. **Persistence anomaly:** MAE and RMSE may rank methods differently because RMSE weights large errors more. Still, the prior table’s high persistence R-squared/lower RMSE alongside worse MAE must be recalculated from the same prediction array, target array, mask, and scale. Ground-truth-margin persistence is an oracle-style reference, not an operational sensor-only baseline.
+5. **Event metrics and lead time:** Events are contiguous sustained negative-margin episodes; warning episodes require two consecutive below-threshold samples and are grouped with a 0.20-second gap. An early warning must begin no later than event onset within a five-second pre-event association window. Post-onset warnings are late-only; unmatched warnings are unassociated. In the matched ablation, early detection ranges from 25/39 to 29/39 (64.1%-74.4%), median lead from 0.40 to 0.90 s, and unassociated warnings from 9 to 21.
+6. **Threshold calibration:** Each method/horizon threshold maximizes early-event detection on validation runs, subject to no more than 0.5 unassociated warnings per validation run. Ties prefer fewer unassociated warnings then the higher threshold. Thresholds are frozen before test evaluation; the validation cap does not guarantee test burden.
+7. **Uncertainty/generalization:** Run-cluster bootstrap intervals use 2,000 resamples of 44 test runs. Five-seed regression covers XGBoost and Hybrid only, not LSTM/GRU. Synthetic noise is illustrative, tire parameters are not fitted to a production vehicle, roll/load-transfer dynamics are omitted, and no measured vehicle/hardware-in-the-loop/driver-response/embedded latency validation is claimed.
+8. **Structure and language:** The paper follows Abstract, Introduction, Related Works, Methods, Results and Discussion, Conclusion, and Reference, with 16 references. Final page references must be confirmed after venue-template typesetting.
